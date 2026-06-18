@@ -368,11 +368,9 @@
           const maxes = {};
           trackedLifts.forEach(l => { maxes[l.id] = { max: 0, normalizedName: l.name.toLowerCase() }; });
 
-          // Extract metrics matching template configurations
           [...sessions].reverse().forEach(s => {
             if (!s.sets) return;
             Object.entries(s.sets).forEach(([exId, setList]) => {
-              // Attempt mapping by key or explicit lift name tracking continuity
               const targetTrack = trackedLifts.find(l => l.id === exId);
               if (targetTrack) {
                 setList.forEach(set => {
@@ -463,8 +461,6 @@
                 const day = PROGRAM[session.dayId];
                 const isOpen = expanded.has(idx);
                 const storageKey = `workout:${session.dayId}:${session.date}:${session.timestamp}`;
-                
-                // Backwards safety parsing for names logged dynamically
                 const exerciseNameMap = session.customExerciseMeta || {};
 
                 return e("div", { key: idx, className: "jt-history-entry" },
@@ -509,6 +505,7 @@
           );
         }
 
+        // ─── ACTIVE TRAINING DISPATCH BOARD ───────────────────────────────────────────
         function WorkoutScreen({ dayId, currentWeek, currentExercises, sessionSets, sessionRehab, condData, onUpdateSet, onToggleDone, onAddSet, onToggleRehab, onUpdateCond, onRenameExercise, onAddCustomExercise, onSave, onBack }) {
           const day = PROGRAM[dayId];
           const isDeload = DELOAD_WEEKS.includes(currentWeek);
@@ -559,12 +556,15 @@
           const [completedDays, setCompletedDays] = useState(new Set());
           const [activeDay, setActiveDay] = useState(null);
           
-          // Workspace track copies
+          // Workspace tracking matrices
           const [currentExercises, setCurrentExercises] = useState([]);
           const [sessionSets, setSessionSets] = useState({});
           const [sessionRehab, setSessionRehab] = useState({});
           const [customExerciseMeta, setCustomExerciseMeta] = useState({});
           const [condData, setCondData] = useState({ duration: "", notes: "" });
+          
+          // Persistence override container objects
+          const [programOverrides, setProgramOverrides] = useState(() => storage.get("jt_program_overrides") || {});
           
           const [sessions, setSessions] = useState([]);
           const [toast, setToast] = useState({ msg: "", show: false });
@@ -617,8 +617,14 @@
             const day = PROGRAM[dayId];
             const isDeload = DELOAD_WEEKS.includes(currentWeek);
             
-            // Build editable array layouts
-            const clonedExercises = [...(day.exercises || [])];
+            // Build editable workspace, pulling structural overrides if recorded
+            const clonedExercises = (day.exercises || []).map(ex => {
+              const persistentOverrideName = programOverrides[ex.id];
+              return persistentOverrideName 
+                ? { ...ex, name: persistentOverrideName, isSwapped: true }
+                : ex;
+            });
+
             const sets = {};
             const meta = {};
             
@@ -638,11 +644,18 @@
             setCondData({ duration: "", notes: "" });
             setActiveDay(dayId);
             setTab("workout");
-          }, [currentWeek]);
+          }, [currentWeek, programOverrides]);
 
+          // Renames exercise and updates persistent global layers for future initialization cycles
           const handleRenameExercise = useCallback((exId, newName) => {
             setCurrentExercises(prev => prev.map(ex => ex.id === exId ? { ...ex, name: newName, isSwapped: true } : ex));
             setCustomExerciseMeta(prev => ({ ...prev, [exId]: newName }));
+            
+            setProgramOverrides(prev => {
+              const updated = { ...prev, [exId]: newName };
+              storage.set("jt_program_overrides", updated);
+              return updated;
+            });
           }, []);
 
           const handleAddCustomExercise = useCallback(() => {
@@ -705,7 +718,7 @@
             storage.set(`workout:${activeDay}:${dateStr}:${timestamp}`, {
               dayId: activeDay, week: currentWeek, date: dateStr, timestamp,
               sets: sessionSets, rehab: sessionRehab, conditioning: condData,
-              customExerciseMeta: customExerciseMeta // Locks name swaps and additions permanently to this entry log
+              customExerciseMeta: customExerciseMeta
             });
             triggerToast("Workout Tracked ✓");
             setTab("home");
@@ -741,6 +754,11 @@
               try {
                 const parsed = JSON.parse(e.target.result);
                 Object.entries(parsed).forEach(([k, v]) => { localStorage.setItem(k, v); });
+                
+                // Backwards parsing recovery for structural overrides inside imported backups
+                const loadedOverrides = storage.get("jt_program_overrides") || {};
+                setProgramOverrides(loadedOverrides);
+
                 refreshLogs();
                 triggerToast("Database Restored");
               } catch (err) { alert("Invalid matrix backup payload."); }
@@ -751,6 +769,8 @@
           const handleWipeDatabase = () => {
             if (confirm("DANGER: Wipe all workout records permanently? This cannot be undone.")) {
               storage.list().filter(k => k.startsWith("workout:")).forEach(k => storage.remove(k));
+              storage.remove("jt_program_overrides");
+              setProgramOverrides({});
               refreshLogs();
               triggerToast("Database Cleared");
             }
