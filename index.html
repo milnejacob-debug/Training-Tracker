@@ -1,557 +1,794 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Operator Training Engine</title>
-  <!-- Tailwind CSS Engine CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React and ReactDOM Production Engines -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <!-- Lucide Icons for clean UI utility -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    /* Prevent mobile webkit scrolling rubber-banding inside structural components */
-    body { -webkit-tap-highlight-color: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  </style>
-</head>
-<body class="h-full flex flex-col antialiased selection:bg-lime-500 selection:text-slate-900">
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Training Matrix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen">
+    <div id="root"></div>
 
-  <div id="root" class="h-full flex flex-col overflow-hidden max-w-md mx-auto w-full border-x border-slate-900 bg-slate-950"></div>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const { useState, useEffect, useCallback, useRef, Fragment } = React;
+        const e = React.createElement;
 
-  <script>
-    const e = React.createElement;
-    const { useState, useEffect, useRef } = React;
-
-    // ─── MULTI-PHASE PROGRAM BLOCK DEFINITION ──────────────────────────────────
-    const PROGRAM_PHASES = {
-      strength_accumulation: {
-        name: "Winter Strength Accumulation",
-        mon: {
-          id: "mon", label: "Monday", name: "Lower Strength", focus: "Squat · RDL",
-          exercises: [
-            { id: "squat", name: "Barbell Squat", sets: 4, reps: "5", prescription: "4×5", note: "Heavy strength base." },
-            { id: "rdl", name: "Romanian Deadlift", sets: 3, reps: "8", prescription: "3×8", note: "Control eccentric phase." }
-          ]
-        },
-        tue: {
-          id: "tue", label: "Tuesday", name: "Upper Push", focus: "Bench · OHP",
-          exercises: [
-            { id: "bench", name: "Barbell Bench Press", sets: 4, reps: "5", prescription: "4×5", note: "Power output focus." },
-            { id: "ohp", name: "Overhead Press", sets: 3, reps: "8", prescription: "3×8", note: "Manage shoulder load carefully." }
-          ]
-        },
-        wed: { id: "wed", label: "Wednesday", name: "Active Recovery", conditioning: true, exercises: [] },
-        thu: {
-          id: "thu", label: "Thursday", name: "Lower Athletic Focus", focus: "Trap Bar · Splits",
-          exercises: [
-            { id: "trapbar", name: "Trap Bar Deadlift", sets: 4, reps: "6", prescription: "4×6", note: "Explosive triple extension pull." }
-          ]
-        },
-        fri: {
-          id: "fri", label: "Friday", name: "Upper Pull Density", focus: "Pull-ups · Rows",
-          exercises: [
-            { id: "pullup", name: "Weighted Pull-Up", sets: 4, reps: "6", prescription: "4×6" },
-            { id: "row", name: "Barbell Row", sets: 3, reps: "8", prescription: "3×8" }
-          ]
-        },
-        sat: { id: "sat", label: "Saturday", name: "Aerobic Capacity (Zone 2)", conditioning: true, exercises: [] }
-      },
-
-      summer_hybrid: {
-        name: "Summer Hybrid (Engine & Capacity)",
-        mon: {
-          id: "mon", label: "Monday", name: "Lower Work Capacity", focus: "High Rep Squat · Volume",
-          exercises: [
-            { id: "squat", name: "Barbell Squat", sets: 3, reps: "10", prescription: "3×10", note: "Lighter structural load, metabolic stress." },
-            { id: "stepdown", name: "Patrick Step Down", sets: 3, reps: "20 ea", prescription: "3×20", note: "Knee resilience and tracking focus." }
-          ]
-        },
-        tue: { id: "tue", label: "Tuesday", name: "Running: Track Intervals", conditioning: true, exercises: [] },
-        wed: {
-          id: "wed", label: "Wednesday", name: "Upper Local Endurance", focus: "Bodyweight Modifiers",
-          exercises: [
-            { id: "pushup", name: "Deficit Push-Up", sets: 4, reps: "15", prescription: "4×15" },
-            { id: "pullup", name: "Bodyweight Pull-Up", sets: 4, reps: "Max", prescription: "4×Max" }
-          ]
-        },
-        thu: { id: "thu", label: "Thursday", name: "Running: Tempo Work", conditioning: true, exercises: [] },
-        fri: {
-          id: "fri", label: "Friday", name: "Full Body Armor Structural", focus: "Hinge & Carry",
-          exercises: [
-            { id: "trapbar", name: "Trap Bar Deadlift", sets: 3, reps: "8", prescription: "3×8", note: "Sub-maximal explosive speed pulls." }
-          ]
-        },
-        sat: { id: "sat", label: "Saturday", name: "Acreage / Long Trail Run", conditioning: true, exercises: [] }
-      }
-    };
-
-    // ─── LOCAL STORAGE WRAPPER UTILITIES ──────────────────────────────────────
-    const storage = {
-      get: (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; } },
-      set: (key, val) => { localStorage.setItem(key, JSON.stringify(val)); },
-      allKeys: () => Object.keys(localStorage)
-    };
-
-    // Helper to extract date strings securely
-    const getTodayStr = () => new Date().toISOString().split('T')[0];
-
-    // ─── MASTER ROOT COMPONENT ────────────────────────────────────────────────
-    function App() {
-      const [activeTab, setActiveTab] = useState("train"); // train, history, analytics
-      const [activePhase, setActivePhase] = useState(() => storage.get("jt_active_phase") || "strength_accumulation");
-      const [selectedDay, setSelectedDay] = useState("mon");
-      const [workoutLogs, setWorkoutLogs] = useState([]);
-      
-      // Live session engine tracking workspace
-      const [liveExercises, setLiveExercises] = useState([]);
-      const [sessionActive, setSessionActive] = useState(false);
-      const [conditioningNotes, setConditioningNotes] = useState("");
-
-      const currentProgram = PROGRAM_PHASES[activePhase] || PROGRAM_PHASES.strength_accumulation;
-      const currentDayData = currentProgram[selectedDay];
-
-      // Refresh data layers from local storage
-      const loadLogsFromStorage = () => {
-        const keys = storage.allKeys();
-        const logs = keys
-          .filter(k => k.startsWith("workout:"))
-          .map(k => {
-            const parts = k.split(":");
-            return {
-              key: k,
-              dayId: parts[1],
-              date: parts[2],
-              timestamp: parseInt(parts[3] || "0"),
-              data: storage.get(k)
-            };
-          })
-          .sort((a, b) => b.timestamp - a.timestamp);
-        setWorkoutLogs(logs);
-      };
-
-      useEffect(() => {
-        loadLogsFromStorage();
-      }, []);
-
-      // Re-initialize live track array whenever day or active deployment configuration updates
-      useEffect(() => {
-        if (!sessionActive && currentDayData) {
-          if (currentDayData.conditioning) {
-            setLiveExercises([]);
-            setConditioningNotes("");
-          } else {
-            const prepared = currentDayData.exercises.map(ex => ({
-              ...ex,
-              setsData: Array.from({ length: ex.sets }, () => ({ weight: "", reps: ex.reps, checked: false }))
-            }));
-            setLiveExercises(prepared);
-          }
-        }
-      }, [selectedDay, activePhase, sessionActive]);
-
-      const handleStartSession = () => {
-        setSessionActive(true);
-      };
-
-      const handleCancelSession = () => {
-        if(confirm("Discard current training session mutations?")) {
-          setSessionActive(false);
-          // Force execution layout rebuild
-          const prepared = currentDayData.exercises.map(ex => ({
-            ...ex,
-            setsData: Array.from({ length: ex.sets }, () => ({ weight: "", reps: ex.reps, checked: false }))
-          }));
-          setLiveExercises(prepared);
-          setConditioningNotes("");
-        }
-      };
-
-      // Real-time structural swap updates (Modifying the lift text names or targets)
-      const updateExerciseMeta = (index, property, value) => {
-        const updated = [...liveExercises];
-        updated[index][property] = value;
-        setLiveExercises(updated);
-      };
-
-      const updateSetDataValue = (exIndex, setIndex, field, value) => {
-        const updated = [...liveExercises];
-        updated[exIndex].setsData[setIndex][field] = value;
-        setLiveExercises(updated);
-      };
-
-      const toggleSetCheckedState = (exIndex, setIndex) => {
-        const updated = [...liveExercises];
-        const currentSet = updated[exIndex].setsData[setIndex];
-        currentSet.checked = !currentSet.checked;
-        setLiveExercises(updated);
-      };
-
-      const handleCommitWorkout = () => {
-        const timestamp = Date.now();
-        const dateStr = getTodayStr();
-        const storageKey = `workout:${selectedDay}:${dateStr}:${timestamp}`;
-        
-        const logPayload = {
-          phaseKey: activePhase,
-          phaseName: currentProgram.name,
-          dayLabel: currentDayData.label,
-          dayName: currentDayData.name,
-          isConditioning: !!currentDayData.conditioning,
-          exercises: liveExercises,
-          conditioningNotes: conditioningNotes
+        // ─── THE ORIGINAL PROGRAM BLUEPRINT ─────────────────────────────────────────────
+        const PROGRAM = {
+          mon: {
+            id: "mon", label: "Monday", name: "Lower Strength", focus: "Squat · RDL · Rehab",
+            rehab: ["Couch Stretch"],
+            exercises: [
+              { id: "squat", name: "Barbell Squat", sets: 4, reps: "5", prescription: "4×5", note: "Heavy. 3–4 min rest. Strength work." },
+              { id: "rdl", name: "Romanian Deadlift", sets: 3, reps: "8", prescription: "3×8", note: "Control the eccentric. 2 min rest." },
+              { id: "patrick", name: "Patrick Step Down", sets: 3, reps: "15 ea", prescription: "3×15", note: "Slow 3–4 sec lowering. Knee rehab cornerstone.", bodyweight: true },
+              { id: "tibialis", name: "Tibialis Raise", sets: 3, reps: "25", prescription: "3×25", note: "Toes up against wall.", bodyweight: true },
+              { id: "calf", name: "Seated Calf Raise", sets: 3, reps: "20", prescription: "3×20", note: "Soleus focus. Pause at bottom stretch." },
+            ]
+          },
+          tue: {
+            id: "tue", label: "Tuesday", name: "Upper Push", focus: "Bench · OHP · Tris",
+            rehab: [],
+            exercises: [
+              { id: "bench", name: "Barbell Bench Press", sets: 4, reps: "5", prescription: "4×5", note: "Heavy. 3–4 min rest." },
+              { id: "incline", name: "Incline DB Press", sets: 3, reps: "10", prescription: "3×10", note: "Full range. Pause at bottom." },
+              { id: "ohp", name: "Overhead Press", sets: 3, reps: "8", prescription: "3×8", note: "Strict form. No leg drive.", injuryFlag: "⚠ Shoulder — manage load. Note any pain." },
+              { id: "lateral", name: "Lateral Raise", sets: 3, reps: "15", prescription: "3×15", note: "Light. Control throughout." },
+              { id: "tricep", name: "Tricep Pushdown", sets: 3, reps: "12", prescription: "3×12", note: "Cable or band." },
+            ]
+          },
+          wed: {
+            id: "wed", label: "Wednesday", name: "Conditioning", focus: "Intervals · Tempo",
+            rehab: [], conditioning: true, exercises: [],
+          },
+          thu: {
+            id: "thu", label: "Thursday", name: "Lower Athletic", focus: "Trap Bar · Hinge · Glutes",
+            rehab: ["Couch Stretch"],
+            exercises: [
+              { id: "trapbar", name: "Trap Bar Deadlift", sets: 4, reps: "6", prescription: "4×6", note: "Athletic hinge. 2–3 min rest." },
+              { id: "atg", name: "ATG Split Squat", sets: 3, reps: "10 ea", prescription: "3×10", note: "Bodyweight only until hip flexor resolves.", injuryFlag: "⚠ Left hip flexor — bodyweight only.", bodyweight: true },
+              { id: "slantboard", name: "Slant Board Squat", sets: 3, reps: "12", prescription: "3×12", note: "Heels elevated ~30°. Knees forward intentionally.", bodyweight: true },
+              { id: "nordic", name: "Nordic Curl", sets: 3, reps: "5", prescription: "3×5", note: "Partial negatives OK. Anchor feet under something heavy.", bodyweight: true },
+              { id: "hipthrust", name: "Hip Thrust", sets: 3, reps: "12", prescription: "3×12", note: "Full extension at top. Pause 1 sec." },
+            ]
+          },
+          fri: {
+            id: "fri", label: "Friday", name: "Upper Pull", focus: "Pull-ups · Rows · Curls",
+            rehab: [],
+            exercises: [
+              { id: "pullup", name: "Weighted Pull-Up", sets: 4, reps: "6", prescription: "4×6", note: "Pull-ups preferred. Full hang at bottom." },
+              { id: "row", name: "Barbell Row", sets: 3, reps: "8", prescription: "3×8", note: "Chest supported or bent over. Heavy." },
+              { id: "facepull", name: "Face Pull", sets: 3, reps: "15", prescription: "3×15", note: "Cable. External rotation. Shoulder health." },
+              { id: "hammer", name: "Hammer Curl", sets: 3, reps: "12", prescription: "3×12", note: "Neutral grip. No swinging." },
+              { id: "pullpart", name: "Band Pull Apart", sets: 3, reps: "20", prescription: "3×20", note: "Shoulder health. Light band, perfect form.", bodyweight: true },
+            ]
+          },
+          sat: {
+            id: "sat", label: "Saturday", name: "Zone 2", focus: "Aerobic base",
+            rehab: [], conditioning: true, exercises: [],
+          },
         };
 
-        storage.set(storageKey, logPayload);
-        setSessionActive(false);
-        loadLogsFromStorage();
-        alert("Session locked into device sandbox storage.");
-      };
+        const DAYS_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat"];
+        const DELOAD_WEEKS = [4, 8];
+        const DELOAD_FACTOR = 0.55;
 
-      return e("div", { class: "h-full flex flex-col justify-between overflow-hidden relative" },
-        // Top Primary Branding Header
-        e("header", { class: "bg-slate-900 border-b border-slate-800 p-4 shrink-0 flex items-center justify-between" },
-          e("div", null,
-            e("h1", { class: "text-md font-bold tracking-tight text-lime-400" }, "OPERATOR ENGINE"),
-            e("p", { class: "text-xs text-slate-400 font-mono" }, "v2.0.0 // LOCAL-SANDBOXED")
-          ),
-          sessionActive && e("div", { class: "bg-red-950/40 border border-red-800/60 text-red-400 text-[10px] px-2 py-1 rounded uppercase tracking-widest font-bold animate-pulse" }, "LIVE SESSION")
-        ),
-
-        // Primary Scrollable Body Container
-        e("main", { class: "flex-1 overflow-y-auto p-4 no-scrollbar space-y-4" },
-          activeTab === "train" && e(TrainTab, {
-            activePhase, setActivePhase, selectedDay, setSelectedDay, currentProgram, currentDayData,
-            sessionActive, handleStartSession, handleCancelSession, handleCommitWorkout,
-            liveExercises, updateExerciseMeta, updateSetDataValue, toggleSetCheckedState,
-            conditioningNotes, setConditioningNotes
-          }),
-          activeTab === "history" && e(HistoryTab, { workoutLogs, loadLogsFromStorage }),
-          activeTab === "analytics" && e(AnalyticsTab, { workoutLogs })
-        ),
-
-        // Bottom Application Form Factor Navigation Hub
-        e("nav", { class: "bg-slate-900 border-t border-slate-800 h-16 shrink-0 grid grid-cols-3 text-center" },
-          [
-            { id: "train", label: "TRAIN", icon: "dumbbell" },
-            { id: "history", label: "LOGS", icon: "history" },
-            { id: "analytics", label: "METRICS", icon: "line-chart" }
-          ].map(btn => {
-            const isActive = activeTab === btn.id;
-            return e("button", {
-              key: btn.id,
-              onClick: () => !sessionActive ? setActiveTab(btn.id) : alert("Commit or cancel active deployment session before navigating."),
-              class: `flex flex-col items-center justify-center space-y-1 font-bold tracking-wider text-xs border-t-2 transition-all ${isActive ? "text-lime-400 border-lime-400 bg-slate-950/40" : "text-slate-500 border-transparent hover:text-slate-300"}`
-            }, btn.label);
-          })
-        )
-      );
-    }
-
-    // ─── MODULE TAB 1: LOGICAL TRAINING CONTROL ──────────────────────────────
-    function TrainTab({
-      activePhase, setActivePhase, selectedDay, setSelectedDay, currentProgram, currentDayData,
-      sessionActive, handleStartSession, handleCancelSession, handleCommitWorkout,
-      liveExercises, updateExerciseMeta, updateSetDataValue, toggleSetCheckedState,
-      conditioningNotes, setConditioningNotes
-    }) {
-      return e("div", { class: "space-y-4 pb-6" },
-        
-        // Block deployment phase config switcher selector
-        !sessionActive && e("div", { class: "bg-slate-900/60 border border-slate-900 rounded-xl p-3" },
-          e("label", { class: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5" }, "Active Deployment Block Strategy"),
-          e("select", {
-            value: activePhase,
-            onChange: (e) => {
-              storage.set("jt_active_phase", e.target.value);
-              setActivePhase(e.target.value);
-            },
-            class: "w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-mono font-bold text-slate-200 outline-none focus:border-lime-500"
+        // ─── LOCAL STORAGE ENGINE ─────────────────────────────────────────────────────────
+        const storage = {
+          get: (key) => {
+            try {
+              const val = localStorage.getItem(key);
+              return val ? JSON.parse(val) : null;
+            } catch (err) { return null; }
           },
-            Object.entries(PROGRAM_PHASES).map(([k, v]) => e("option", { key: k, value: k }, v.name))
-          )
-        ),
+          set: (key, val) => {
+            try { localStorage.setItem(key, JSON.stringify(val)); } catch (err) {}
+          },
+          remove: (key) => {
+            try { localStorage.removeItem(key); } catch (err) {}
+          },
+          list: () => {
+            try { return Object.keys(localStorage); } catch (err) { return []; }
+          }
+        };
 
-        // Horizon view weekly calendar tracking selector strips
-        e("div", { class: "flex gap-1 overflow-x-auto no-scrollbar" },
-          ["mon", "tue", "wed", "thu", "fri", "sat"].map(dayKey => {
-            const d = currentProgram[dayKey];
-            const isSelected = selectedDay === dayKey;
-            return e("button", {
-              key: dayKey,
-              disabled: sessionActive,
-              onClick: () => setSelectedDay(dayKey),
-              class: `flex-1 min-w-[58px] p-2 text-center border rounded-xl transition-all flex flex-col items-center ${isSelected ? "bg-lime-500/10 border-lime-500 text-lime-400 font-bold" : "bg-slate-900/40 border-slate-900 text-slate-400"} ${sessionActive ? "opacity-40" : "hover:border-slate-700"}`
-            },
-              e("span", { class: "text-[10px] uppercase tracking-wider block" }, d.label.substring(0,3)),
-              e("span", { class: "text-xs font-bold font-mono mt-0.5" }, d.conditioning ? "Z2/ENG" : "LIFT")
-            );
-          })
-        ),
-
-        // Session metadata visualization board
-        e("div", { class: "bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1" },
-          e("div", { class: "text-[10px] font-bold text-lime-400 uppercase tracking-widest font-mono" }, currentDayData.focus || "ENGINE CAPACITY / CONDITIONING METRIC"),
-          e("h2", { class: "text-lg font-bold text-slate-100 tracking-tight" }, currentDayData.name),
-          e("p", { class: "text-xs text-slate-400" }, currentProgram.name)
-        ),
-
-        // Main action triggers (Start, Commit, Cancel buttons)
-        e("div", null,
-          !sessionActive 
-            ? e("button", { onClick: handleStartSession, class: "w-full bg-lime-500 hover:bg-lime-400 text-slate-950 text-xs font-bold py-3.5 px-4 rounded-xl tracking-widest transition-all" }, "INITIALIZE DEPLOYMENT SESSION")
-            : e("div", { class: "grid grid-cols-2 gap-2" },
-                e("button", { onClick: handleCancelSession, class: "bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 text-xs font-bold py-3 rounded-xl tracking-wider" }, "DISCARD"),
-                e("button", { onClick: handleCommitWorkout, class: "bg-lime-500 hover:bg-lime-400 text-slate-950 text-xs font-bold py-3 rounded-xl tracking-wider" }, "LOCK & COMMIT LOG")
-              )
-        ),
-
-        // Exercises flight engine render array
-        currentDayData.conditioning 
-          ? e("div", { class: "bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3" },
-              e("h3", { class: "text-xs font-bold text-slate-300 tracking-wider font-mono uppercase" }, "Session Conditioning Tracker Output"),
-              e("textarea", {
-                disabled: !sessionActive,
-                value: conditioningNotes,
-                onChange: (e) => setConditioningNotes(e.target.value),
-                placeholder: sessionActive ? "Log metric targets here (e.g., 45 min Zone 2 run, 5.2 miles, average heart rate 142 bpm)..." : "Initialize deployment to access note input fields.",
-                class: "w-full h-32 bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-slate-200 outline-none focus:border-lime-500 disabled:opacity-50 resize-none"
-              })
-            )
-          : e("div", { class: "space-y-3" },
-              liveExercises.map((ex, exIdx) => e(ExerciseCard, {
-                key: ex.id || exIdx,
-                ex,
-                exIdx,
-                sessionActive,
-                updateExerciseMeta,
-                updateSetDataValue,
-                toggleSetCheckedState
-              }))
-            )
-      );
-    }
-
-    // ─── SUB-COMPONENT: EXERCISE EDITABLE FLIGHT CARD ───────────────────────
-    function ExerciseCard({ ex, exIdx, sessionActive, updateExerciseMeta, updateSetDataValue, toggleSetCheckedState }) {
-      const [isEditing, setIsEditing] = useState(false);
-
-      return e("div", { class: "bg-slate-900 border border-slate-800 rounded-xl overflow-hidden transition-all duration-200" },
-        // Header Section of specific lift module
-        e("div", { class: "bg-slate-900/80 border-b border-slate-950 p-3 flex items-center justify-between gap-2" },
-          isEditing 
-            ? e("div", { class: "flex-1 grid grid-cols-2 gap-2" },
-                e("input", {
-                  value: ex.name,
-                  onChange: (e) => updateExerciseMeta(exIdx, "name", e.target.value),
-                  placeholder: "Lift Name",
-                  class: "bg-slate-950 border border-slate-700 text-xs font-mono text-lime-400 p-1.5 rounded outline-none"
-                }),
-                e("div", { class: "flex gap-1" },
-                  e("input", {
-                    value: ex.prescription,
-                    onChange: (e) => updateExerciseMeta(exIdx, "prescription", e.target.value),
-                    placeholder: "Targets",
-                    class: "bg-slate-950 border border-slate-700 text-xs font-mono text-slate-300 p-1.5 rounded w-full outline-none"
-                  }),
-                  e("button", { onClick: () => setIsEditing(false), class: "bg-lime-500 text-slate-950 text-[10px] font-bold px-2 rounded font-mono" }, "DONE")
-                )
-              )
-            : e("div", { class: "flex-1 min-w-0" },
-                e("div", { class: "flex items-center gap-1.5" },
-                  e("span", { class: "text-xs font-bold text-slate-200 truncate font-mono" }, ex.name),
-                  e("span", { class: "text-[10px] text-slate-500 font-mono" }, `(${ex.prescription})`)
-                ),
-                ex.note && e("p", { class: "text-[10px] text-slate-400 font-mono mt-0.5 truncate" }, ex.note)
-              ),
-          
-          sessionActive && !isEditing && e("button", {
-            onClick: () => setIsEditing(true),
-            class: "text-slate-500 hover:text-lime-400 p-1 transition-colors flex items-center shrink-0"
-          }, e("span", { class: "text-[10px] font-mono tracking-widest border border-slate-800 bg-slate-950 px-1.5 py-0.5 rounded" }, "SWAP"))
-        ),
-
-        // Operational Sets Metric Matrices
-        e("div", { class: "p-3 space-y-1.5 bg-slate-950/40" },
-          ex.setsData?.map((set, setIdx) => {
-            return e("div", { key: setIdx, class: `flex items-center gap-2 text-xs font-mono p-1 rounded transition-colors ${set.checked ? "bg-lime-500/5" : ""}` },
-              e("span", { class: `w-5 font-bold text-[10px] text-center ${set.checked ? "text-lime-500" : "text-slate-500"}` }, `S${setIdx + 1}`),
-              
-              // Load Input Channel
-              e("div", { class: "flex-1 flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden px-2" },
-                e("input", {
-                  type: "number",
-                  pattern: "[0-9]*",
-                  disabled: !sessionActive,
-                  value: set.weight,
-                  onChange: (e) => updateSetDataValue(exIdx, setIdx, "weight", e.target.value),
-                  placeholder: "---",
-                  class: "w-full bg-transparent text-center text-slate-200 py-1.5 font-bold outline-none disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                }),
-                e("span", { class: "text-[10px] text-slate-600 font-bold ml-1" }, "LBS")
-              ),
-
-              e("span", { class: "text-slate-600 font-bold" }, "×"),
-
-              // Repetition Matrix Input Channel
-              e("div", { class: "flex-1 flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden px-2" },
-                e("input", {
-                  type: "text",
-                  disabled: !sessionActive,
-                  value: set.reps,
-                  onChange: (e) => updateSetDataValue(exIdx, setIdx, "reps", e.target.value),
-                  placeholder: "0",
-                  class: "w-full bg-transparent text-center text-slate-200 py-1.5 font-bold outline-none disabled:opacity-50"
-                }),
-                e("span", { class: "text-[10px] text-slate-600 font-bold ml-1" }, "REPS")
-              ),
-
-              // Tactical confirmation checkbox locking variable data state
-              e("button", {
-                disabled: !sessionActive,
-                onClick: () => toggleSetCheckedState(exIdx, setIdx),
-                class: `w-8 h-8 rounded-lg border flex items-center justify-center font-bold transition-all ${set.checked ? "bg-lime-500 border-lime-500 text-slate-950" : "bg-slate-950 border-slate-800 text-slate-700"} disabled:opacity-40`
-              }, set.checked ? "✓" : "")
-            );
-          })
-        )
-      );
-    }
-
-    // ─── MODULE TAB 2: HISTORY RECORD ENGINE ────────────────────────────────
-    function HistoryTab({ workoutLogs, loadLogsFromStorage }) {
-      const handleDeleteRecord = (key) => {
-        if(confirm("Permanently strip this workout metric payload from local storage?")) {
-          localStorage.removeItem(key);
-          loadLogsFromStorage();
+        // ─── HELPERS ───────────────────────────────────────────────────────────────────
+        function formatDate(dateStr) {
+          const d = new Date(dateStr + "T12:00:00");
+          return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
         }
-      };
 
-      if (workoutLogs.length === 0) {
-        return e("div", { class: "text-center py-12 space-y-2" },
-          e("p", { class: "text-sm text-slate-500 font-mono" }, "Device local historical database is completely blank."),
-          e("p", { class: "text-xs text-slate-600 max-w-xs mx-auto" }, "Completed logs written to browser memory origins will manifest sequentially downstream here.")
-        );
-      }
+        function getPreviousData(dayId, exerciseId) {
+          const keys = storage.list().filter(k => k.startsWith(`workout:${dayId}:`)).sort().reverse();
+          for (const key of keys) {
+            const session = storage.get(key);
+            if (session?.sets?.[exerciseId]) return session.sets[exerciseId];
+          }
+          return null;
+        }
 
-      return e("div", { class: "space-y-4 pb-6" },
-        e("h3", { class: "text-xs font-bold text-slate-400 tracking-wider uppercase font-mono" }, `Logged Datasets Archive (${workoutLogs.length})`),
-        workoutLogs.map(log => {
-          const d = log.data;
-          return e("div", { key: log.key, class: "bg-slate-900 border border-slate-800 rounded-xl overflow-hidden font-mono text-xs" },
-            // Header panel metadata band
-            e("div", { class: "bg-slate-900/60 p-3 border-b border-slate-950 flex items-center justify-between" },
-              e("div", null,
-                e("div", { class: "text-slate-400 text-[10px] font-bold uppercase tracking-wider" }, `${log.date} // ${d.dayLabel || log.dayId}`),
-                e("div", { class: "text-slate-200 font-bold font-mono text-sm mt-0.5" }, d.dayName)
-              ),
-              e("button", {
-                onClick: () => handleDeleteRecord(log.key),
-                class: "text-slate-600 hover:text-red-400 font-bold text-[10px] uppercase border border-slate-800 bg-slate-950/60 px-2 py-1 rounded"
-              }, "DELETE")
+        function suggestNextWeight(prevSets, isDeload) {
+          if (!prevSets?.length) return "";
+          const doneSets = prevSets.filter(s => s.done);
+          if (!doneSets.length) return prevSets[0].weight || "";
+          const lastWeight = parseFloat(doneSets[doneSets.length - 1].weight) || 0;
+          const allComplete = doneSets.length >= prevSets.length;
+          const targetReps = parseInt(doneSets[0].targetReps) || 0;
+          const allMaxReps = doneSets.every(s => parseInt(s.reps) >= targetReps);
+          
+          let suggested = lastWeight;
+          if (allComplete && allMaxReps && !isDeload) {
+            suggested = lastWeight + 5;
+          }
+          if (isDeload) {
+            suggested = Math.round((lastWeight * DELOAD_FACTOR) / 5) * 5;
+          }
+          return suggested > 0 ? String(suggested) : "";
+        }
+
+        function initSets(ex, prevSets, isDeload) {
+          const targetSets = isDeload ? Math.ceil(ex.sets * 0.5) : ex.sets;
+          const suggested = ex.bodyweight ? "BW" : suggestNextWeight(prevSets, isDeload);
+          return Array.from({ length: targetSets }, (_, i) => {
+            let weight = suggested;
+            if (prevSets?.[i]) {
+              if (ex.bodyweight) weight = "BW";
+              else if (isDeload) weight = String(Math.round((parseFloat(prevSets[i].weight) || 0) * DELOAD_FACTOR / 5) * 5) || suggested;
+              else weight = prevSets[i].weight;
+            }
+            return { weight, reps: String(ex.reps), targetReps: String(ex.reps), done: false };
+          });
+        }
+
+        function calculate1RM(weight, reps) {
+          const w = parseFloat(weight);
+          const r = parseInt(reps);
+          if (isNaN(w) || isNaN(r) || r <= 0) return 0;
+          if (r === 1) return w;
+          return Math.round(w * (1 + r / 30));
+        }
+
+        // ─── STYLES (CSS INJECT) ───────────────────────────────────────────────────────
+        const CSS = `
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+          :root {
+            --bg: #0f1117; --surface: #181c26; --surface2: #1e2435; --border: #2a3045;
+            --accent: #c8f03a; --text: #e8ecf4; --text-dim: #7a8299; --text-dimmer: #4a5268;
+            --red: #ff4f4f; --red-dim: rgba(255,79,79,0.12);
+            --orange: #f0923a; --green: #3af09a; --green-dim: rgba(58,240,154,0.12);
+            --mono: 'JetBrains Mono', monospace;
+            --radius: 12px; --radius-sm: 8px;
+          }
+          .jt-root * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+          .jt-root { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 80px; }
+          .jt-header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+          .jt-header-title { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-family: var(--mono); }
+          .jt-header-sub { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-screen { flex: 1; overflow-y: auto; }
+          .jt-week-bar { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; }
+          .jt-week-bar::-webkit-scrollbar { display: none; }
+          .jt-week-pill { flex-shrink: 0; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-family: var(--mono); cursor: pointer; color: var(--text-dim); background: var(--surface); white-space: nowrap; transition: all 0.15s; }
+          .jt-week-pill.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+          .jt-week-pill.deload { border-color: var(--orange); color: var(--orange); }
+          .jt-week-pill.deload.active { background: var(--orange); color: var(--bg); }
+          .jt-section-header { padding: 20px 16px 8px; display: flex; align-items: center; gap: 10px; }
+          .jt-section-title { font-size: 11px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+          .jt-divider { flex: 1; height: 1px; background: var(--border); }
+          .jt-day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+          .jt-day-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 14px; cursor: pointer; position: relative; overflow: hidden; }
+          .jt-day-card.done { border-color: rgba(58,240,154,0.3); }
+          .jt-day-label { font-size: 10px; font-family: var(--mono); color: var(--text-dim); margin-bottom: 4px; }
+          .jt-day-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+          .jt-day-focus { font-size: 12px; color: var(--text-dim); }
+          .jt-done-badge { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; background: var(--green-dim); border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+          .jt-back-bar { display: flex; align-items: center; gap: 12px; padding: 16px; }
+          .jt-back-btn { background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; font-family: var(--mono); }
+          .jt-workout-title { font-size: 20px; font-weight: 800; color: var(--text); }
+          .jt-workout-sub { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-ex-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+          .jt-ex-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+          .jt-ex-name { font-size: 16px; font-weight: 700; color: var(--text); }
+          .jt-ex-rx { font-size: 11px; font-family: var(--mono); color: var(--text-dim); background: var(--surface2); padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+          .jt-ex-note { font-size: 12px; color: var(--text-dim); font-style: italic; margin-bottom: 12px; }
+          .jt-injury { padding: 6px 10px; background: var(--red-dim); border-left: 2px solid var(--red); border-radius: 4px; font-size: 12px; color: var(--red); margin-bottom: 10px; }
+          .jt-set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+          .jt-set-label { font-size: 12px; font-family: var(--mono); color: var(--text-dimmer); width: 24px; }
+          .jt-stepper-group { display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+          .jt-step-btn { width: 32px; height: 40px; background: transparent; border: none; color: var(--text-dim); font-size: 18px; font-weight: 600; cursor: pointer; }
+          .jt-step-btn:active { background: rgba(255,255,255,0.05); }
+          .jt-set-input { width: 50px; height: 40px; background: transparent; border: none; color: var(--text); font-size: 15px; font-family: var(--mono); font-weight: 600; text-align: center; outline: none; -webkit-appearance: none; }
+          .jt-set-input.done { color: var(--green); }
+          .jt-bw-lbl { width: 114px; text-align: center; font-size: 14px; font-family: var(--mono); color: var(--text-dim); font-weight: 600; }
+          .jt-unit-lbl { font-size: 11px; font-family: var(--mono); color: var(--text-dimmer); margin-left: 2px; }
+          .jt-done-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); cursor: pointer; color: var(--text-dimmer); font-size: 16px; font-weight: 700; transition: all 0.15s; margin-left: auto; }
+          .jt-done-btn.done { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+          .jt-add-set-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 12px; cursor: pointer; font-family: var(--mono); }
+          .jt-cond-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+          .jt-cond-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.4; }
+          .jt-duration-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+          .jt-duration-input { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--accent); font-size: 22px; font-family: var(--mono); font-weight: 700; text-align: center; padding: 8px; width: 80px; outline: none; }
+          .jt-cond-textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; padding: 12px; min-height: 90px; resize: none; outline: none; font-family: inherit; }
+          .jt-rehab-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
+          .jt-rehab-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+          .jt-rehab-item:last-child { border-bottom: none; }
+          .jt-rehab-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; color: transparent; transition: all 0.15s; }
+          .jt-rehab-item.done .jt-rehab-check { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+          .jt-rehab-text { font-size: 15px; font-weight: 600; }
+          .jt-rehab-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+          .jt-save-area { padding: 16px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+          .jt-save-btn { width: 100%; padding: 16px; background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius); font-size: 14px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); cursor: pointer; }
+          .jt-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); display: flex; height: 64px; z-index: 200; }
+          .jt-nav-btn { flex: 1; background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-dimmer); }
+          .jt-nav-btn.active { color: var(--accent); }
+          .jt-nav-icon { font-size: 18px; }
+          .jt-nav-label { font-size: 10px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.04em; }
+          .jt-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 12px 24px; border-radius: 24px; font-size: 13px; font-weight: 700; font-family: var(--mono); z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: all 0.2s ease; opacity: 0; pointer-events: none; }
+          .jt-toast.show { opacity: 1; }
+          .jt-empty { text-align: center; padding: 48px 24px; color: var(--text-dim); }
+          .jt-history-entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 0 16px 10px; overflow: hidden; }
+          .jt-history-header { padding: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+          .jt-history-title { font-size: 15px; font-weight: 700; }
+          .jt-history-date { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-history-body { padding: 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+          .jt-history-row { font-size: 13px; font-family: var(--mono); color: var(--text-dim); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+          .jt-history-row:last-child { border-bottom: none; }
+          .jt-history-val { color: var(--accent); font-weight: 600; }
+          .jt-db-panel { margin: 16px; padding: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); display: flex; gap: 8px; }
+          .jt-db-btn { flex: 1; padding: 10px; font-family: var(--mono); font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-align: center; }
+          .jt-db-btn.danger { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+          .jt-dash-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+          .jt-metric-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+          .jt-metric-name { font-size: 14px; font-weight: 600; }
+          .jt-metric-val { font-size: 16px; font-family: var(--mono); color: var(--accent); font-weight: 700; }
+          .jt-bar-container { background: var(--surface2); height: 8px; border-radius: 4px; overflow: hidden; width: 100%; position: relative; }
+          .jt-bar-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+          .jt-inline-edit-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--accent); font-family: var(--mono); font-size: 14px; font-weight: 600; padding: 2px 6px; outline: none; width: 160px; }
+          .jt-swapped-badge { font-size: 9px; font-family: var(--mono); text-transform: uppercase; color: var(--orange); background: rgba(240,146,58,0.15); border: 1px solid var(--orange); padding: 1px 4px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+        `;
+
+        // ─── COMPONENTS ────────────────────────────────────────────────────────────────
+        function StepperInput({ value, onChange, isDone, step, placeholder }) {
+          const handleStep = (dir) => {
+            const current = parseFloat(value) || 0;
+            const next = Math.max(0, current + dir * step);
+            onChange(String(next));
+          };
+
+          return e("div", { className: "jt-stepper-group" },
+            e("button", { className: "jt-step-btn", type: "button", onClick: () => handleStep(-1) }, "-"),
+            e("input", {
+              type: "number", inputMode: "decimal", className: `jt-set-input ${isDone ? 'done' : ''}`,
+              placeholder: placeholder, value: value, onChange: evt => onChange(evt.target.value)
+            }),
+            e("button", { className: "jt-step-btn", type: "button", onClick: () => handleStep(1) }, "+")
+          );
+        }
+
+        function ExerciseCard({ ex, sets, onUpdateSet, onToggleDone, onAddSet, onRenameExercise }) {
+          const [isEditing, setIsEditing] = useState(false);
+          const [tempName, setTempName] = useState(ex.name);
+
+          const saveRename = () => {
+            if (tempName.trim()) {
+              onRenameExercise(tempName.trim());
+            }
+            setIsEditing(false);
+          };
+
+          const rows = sets.map((set, i) => e("div", { className: "jt-set-row", key: i },
+            e("div", { className: "jt-set-label" }, `S${i + 1}`),
+            ex.bodyweight ? e("div", { className: "jt-bw-lbl" }, "BW") : e(Fragment, null,
+              e(StepperInput, { value: set.weight, step: 5, isDone: set.done, placeholder: "lbs", onChange: val => onUpdateSet(i, "weight", val) }),
+              e("span", { className: "jt-unit-lbl" }, "lbs")
             ),
+            e("span", { style: { color: 'var(--text-dimmer)', margin: '0 4px', fontFamily: 'var(--mono)' } }, "×"),
+            e(StepperInput, { value: set.reps, step: 1, isDone: set.done, placeholder: "reps", onChange: val => onUpdateSet(i, "reps", val) }),
+            e("span", { className: "jt-unit-lbl" }, "reps"),
+            e("button", { type: "button", className: `jt-done-btn ${set.done ? 'done' : ''}`, onClick: () => onToggleDone(i) }, "✓")
+          ));
 
-            // Execution internal layout specs summary
-            e("div", { class: "p-3 space-y-2 bg-slate-950/20" },
-              d.isConditioning 
-                ? e("p", { class: "text-slate-300 text-xs leading-relaxed whitespace-pre-wrap font-mono" }, d.conditioningNotes || "Empty engineering execution conditioning logs.")
-                : d.exercises?.map((ex, idx) => {
-                    const trackedSets = ex.setsData?.filter(s => s.checked) || [];
-                    return e("div", { key: idx, class: "border-b border-slate-900/60 pb-1.5 last:border-0 last:pb-0" },
-                      e("div", { class: "text-lime-400 font-bold font-mono text-xs" }, ex.name),
-                      trackedSets.length === 0 
-                        ? e("span", { class: "text-slate-600 text-[10px]" }, "No sets verified logged.")
-                        : e("div", { class: "grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-slate-400 mt-0.5" },
-                            trackedSets.map((s, sIdx) => e("span", { key: sIdx }, `Set ${sIdx+1}: ${s.weight || "0"} lbs × ${s.reps}`))
-                          )
-                    );
-                  })
+          return e("div", { className: "jt-ex-card" },
+            e("div", { className: "jt-ex-header" },
+              isEditing ? e("div", { style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+                e("input", {
+                  className: "jt-inline-edit-input",
+                  value: tempName,
+                  onChange: evt => setTempName(evt.target.value),
+                  onBlur: saveRename,
+                  onKeyDown: evt => { if (evt.key === 'Enter') saveRename(); },
+                  autoFocus: true
+                }),
+                e("button", { type: "button", onClick: saveRename, style: { fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--mono)' } }, "[save]")
+              ) : e("div", { style: { display: 'flex', alignItems: 'center', cursor: 'pointer' }, onClick: () => setIsEditing(true) },
+                e("span", { className: "jt-ex-name" }, ex.name),
+                ex.isSwapped && e("span", { className: "jt-swapped-badge" }, "swap"),
+                e("span", { style: { color: 'var(--text-dimmer)', fontSize: '11px', marginLeft: '6px' } }, "✎")
+              ),
+              e("div", { className: "jt-ex-rx" }, ex.prescription)
+            ),
+            ex.injuryFlag && e("div", { className: "jt-injury" }, ex.injuryFlag),
+            ex.note && e("div", { className: "jt-ex-note" }, ex.note),
+            e("div", null, rows),
+            e("button", { type: "button", className: "jt-add-set-btn mt-2", onClick: onAddSet }, "+ Add Custom Set")
+          );
+        }
+
+        function RehabItem({ name, done, onToggle }) {
+          const subs = {
+            "Patrick Step Down": "3×15 ea — slow 3–4 sec lowering phase",
+            "Tibialis Raise": "3×25 reps — toes up locked against wall",
+            "Couch Stretch": "2 mins static hold per side",
+          };
+          return e("div", { className: `jt-rehab-item ${done ? 'done' : ''}`, onClick: onToggle },
+            e("div", { className: "jt-rehab-check" }, "✓"),
+            e("div", null,
+              e("div", { className: "jt-rehab-text" }, name),
+              e("div", { className: "jt-rehab-sub" }, subs[name] || "Structure longevity recovery work")
             )
           );
-        })
-      );
-    }
+        }
 
-    // ─── MODULE TAB 3: TELEMETRY PERFORMANCE METRICS ───────────────────────
-    function AnalyticsTab({ workoutLogs }) {
-      // Parse performance state tracks
-      const computeMaxes = () => {
-        const maxes = {}; // key: exerciseName lowercased -> { maxWeight, date, repString, calcMax }
-        
-        workoutLogs.forEach(log => {
-          const d = log.data;
-          if (d && !d.isConditioning && d.exercises) {
-            d.exercises.forEach(ex => {
-              if (!ex.name) return;
-              const nameKey = ex.name.trim();
-              const validSets = ex.setsData?.filter(s => s.checked && s.weight) || [];
-              
-              validSets.forEach(set => {
-                const w = parseFloat(set.weight);
-                const r = parseInt(set.reps);
-                if (isNaN(w) || isNaN(r) || r <= 0) return;
-                
-                // Brzycki empirical calculations formula for tracking estimates
-                const estimatedMax = w * (36 / (37 - Math.min(r, 10)));
-                
-                if (!maxes[nameKey] || estimatedMax > maxes[nameKey].calcMax) {
-                  maxes[nameKey] = {
-                    cleanName: nameKey,
-                    rawWeight: w,
-                    rawReps: r,
-                    calcMax: Math.round(estimatedMax),
-                    date: log.date
-                  };
-                }
-              });
+        function ConditioningCard({ day, condData, onUpdateCond }) {
+          const isWed = day.id === "wed";
+          return e("div", { className: "jt-cond-card" },
+            e("div", { style: { fontSize: '11px', fontFamily: 'var(--mono)', fontWeight: '700', color: 'var(--orange)', marginBottom: '6px', textTransform: 'uppercase' } },
+              isWed ? "Interval / Tempo Framework" : "Aerobic Base Target"
+            ),
+            e("div", { className: "jt-cond-desc" },
+              isWed ? "Intervals: 6–8 × 400m @ 90 sec rest | Tempo: 20–25 min Zone 3–4." : "60–75 min continuous Zone 2 run. HRM enforced."
+            ),
+            e("div", { className: "jt-duration-row" },
+              e("input", { type: "number", inputMode: "numeric", className: "jt-duration-input", placeholder: "—", value: condData.duration, onChange: evt => onUpdateCond("duration", evt.target.value) }),
+              e("div", { style: { fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--mono)' } }, "mins elapsed")
+            ),
+            e("textarea", { className: "jt-cond-textarea", placeholder: "Log operational metrics...", value: condData.notes, onChange: evt => onUpdateCond("notes", evt.target.value) })
+          );
+        }
+
+        function SectionHeader({ title }) {
+          return e("div", { className: "jt-section-header" },
+            e("span", { className: "jt-section-title" }, title),
+            e("div", { className: "jt-divider" })
+          );
+        }
+
+        // ─── DASHBOARD METRICS SCREEN ──────────────────────────────────────────────────
+        function DashboardScreen({ sessions }) {
+          const trackedLifts = [
+            { id: "squat", name: "Barbell Squat" },
+            { id: "bench", name: "Barbell Bench Press" },
+            { id: "trapbar", name: "Trap Bar Deadlift" },
+            { id: "row", name: "Barbell Row" },
+            { id: "pullup", name: "Weighted Pull-Up" }
+          ];
+
+          const maxes = {};
+          trackedLifts.forEach(l => { maxes[l.id] = { max: 0, normalizedName: l.name.toLowerCase() }; });
+
+          // Extract metrics matching template configurations
+          [...sessions].reverse().forEach(s => {
+            if (!s.sets) return;
+            Object.entries(s.sets).forEach(([exId, setList]) => {
+              // Attempt mapping by key or explicit lift name tracking continuity
+              const targetTrack = trackedLifts.find(l => l.id === exId);
+              if (targetTrack) {
+                setList.forEach(set => {
+                  if (set.done && set.weight && set.weight !== "BW") {
+                    const estimated1RM = calculate1RM(set.weight, set.reps);
+                    if (estimated1RM > maxes[targetTrack.id].max) {
+                      maxes[targetTrack.id].max = estimated1RM;
+                    }
+                  }
+                });
+              }
             });
-          }
-        });
-        
-        return Object.values(maxes).sort((a, b) => b.calcMax - a.calcMax);
-      };
+          });
 
-      const highValueTrackRecords = computeMaxes();
+          const references = { squat: 400, bench: 300, trapbar: 500, row: 250, pullup: 100 };
 
-      if (highValueTrackRecords.length === 0) {
-        return e("div", { class: "text-center py-12 space-y-1 font-mono text-xs" },
-          e("p", { class: "text-slate-500" }, "No verified set telemetry metrics parsed yet."),
-          e("p", { class: "text-slate-600" }, "Verify structural checking rules during workouts to register tracking.")
-        );
-      }
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Estimated 1-Rep Max Metrics" }),
+            trackedLifts.map(lift => {
+              const score = maxes[lift.id].max;
+              const refCeiling = references[lift.id];
+              const pct = Math.min(100, Math.max(5, Math.round((score / refCeiling) * 100))) || 0;
+              return e("div", { key: lift.id, className: "jt-dash-card" },
+                e("div", { className: "jt-metric-row" },
+                  e("span", { className: "jt-metric-name" }, lift.name),
+                  e("span", { className: "jt-metric-val" }, score > 0 ? `${score} lbs` : "No data")
+                ),
+                score > 0 && e("div", { className: "jt-bar-container" },
+                  e("div", { className: "jt-bar-fill", style: { width: `${pct}%` } })
+                )
+              );
+            }),
+            e(SectionHeader, { title: "Aerobic Base Volume" }),
+            e("div", { className: "jt-dash-card" },
+              e("div", { className: "jt-metric-row" },
+                e("span", { className: "jt-metric-name" }, "Total Conditioning Sessions Completed"),
+                e("span", { className: "jt-metric-val" }, sessions.filter(s => s.conditioning?.duration).length)
+              )
+            )
+          );
+        }
 
-      return e("div", { class: "space-y-4 pb-6" },
-        e("div", null,
-          e("h3", { class: "text-xs font-bold text-slate-400 tracking-wider uppercase font-mono" }, "Calculated Absolute Track Records"),
-          e("p", { class: "text-[10px] text-slate-500 font-mono mt-0.5" }, "Estimated 1-Rep Max benchmarks computed via standard Brzycki load telemetry equations.")
-        ),
-        
-        e("div", { class: "space-y-2" },
-          highValueTrackRecords.map((rec, idx) => e("div", { key: idx, class: "bg-slate-900 border border-slate-800 rounded-xl p-3.5 font-mono text-xs flex justify-between items-center" },
-            e("div", { class: "min-w-0 flex-1 pr-2" },
-              e("div", { class: "text-slate-200 font-bold truncate text-sm tracking-tight" }, rec.cleanName),
-              e("div", { class: "text-[10px] text-slate-500 mt-1 flex items-center gap-2" }, 
-                e("span", null, `Best Set: ${rec.rawWeight} lbs × ${rec.rawReps}`),
-                e("span", { class: "text-slate-700" }, "•"),
-                e("span", null, rec.date)
+        // ─── TRAIN & HISTORY SCREENS ───────────────────────────────────────────────────
+        function HomeScreen({ currentWeek, setCurrentWeek, completedDays, onSelectDay }) {
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Training Week" }),
+            e("div", { className: "jt-week-bar" },
+              Array.from({ length: 8 }, (_, i) => i + 1).map(w => {
+                const isDeload = DELOAD_WEEKS.includes(w);
+                return e("div", {
+                  key: w,
+                  className: `jt-week-pill ${isDeload ? 'deload' : ''} ${w === currentWeek ? 'active' : ''}`,
+                  onClick: () => setCurrentWeek(w)
+                }, isDeload ? `Wk ${w} ⚡ Deload` : `Week ${w}`);
+              })
+            ),
+            e(SectionHeader, { title: "Select Routine" }),
+            e("div", { className: "jt-day-grid" },
+              DAYS_ORDER.map(id => {
+                const day = PROGRAM[id];
+                const done = completedDays.has(id);
+                return e("div", { key: id, className: `jt-day-card ${done ? 'done' : ''}`, onClick: () => onSelectDay(id) },
+                  e("div", { className: "jt-day-label" }, day.label),
+                  e("div", { className: "jt-day-name" }, day.name),
+                  e("div", { className: "jt-day-focus" }, day.focus),
+                  done && e("div", { className: "jt-done-badge" }, "✓")
+                );
+              })
+            )
+          );
+        }
+
+        function HistoryScreen({ sessions, onDeleteLog, onBackup, onRestore, onWipe }) {
+          const [expanded, setExpanded] = useState(new Set());
+          const fileInputRef = useRef(null);
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Database Architecture Tools" }),
+            e("div", { className: "jt-db-panel" },
+              e("button", { className: "jt-db-btn", onClick: onBackup }, "Export Backup"),
+              e("button", { className: "jt-db-btn", onClick: () => fileInputRef.current?.click() }, "Import Backup"),
+              e("button", { className: "jt-db-btn danger", onClick: onWipe }, "Wipe Database"),
+              e("input", { type: "file", ref: fileInputRef, style: { display: 'none' }, accept: ".json", onChange: onRestore })
+            ),
+            e(SectionHeader, { title: "Performance History Logs" }),
+            !sessions.length ? e("div", { className: "jt-empty" }, e("p", null, "No logged training operations found.")) : e("div", null,
+              sessions.map((session, idx) => {
+                const day = PROGRAM[session.dayId];
+                const isOpen = expanded.has(idx);
+                const storageKey = `workout:${session.dayId}:${session.date}:${session.timestamp}`;
+                
+                // Backwards safety parsing for names logged dynamically
+                const exerciseNameMap = session.customExerciseMeta || {};
+
+                return e("div", { key: idx, className: "jt-history-entry" },
+                  e("div", {
+                    className: "jt-history-header", onClick: () => {
+                      const next = new Set(expanded);
+                      isOpen ? next.delete(idx) : next.add(idx);
+                      setExpanded(next);
+                    }
+                  },
+                    e("div", null,
+                      e("div", { className: "jt-history-title" }, `${day?.name ?? session.dayId} — Wk ${session.week}`),
+                      e("div", { className: "jt-history-date" }, formatDate(session.date))
+                    ),
+                    e("div", { style: { color: "var(--text-dimmer)", fontSize: "14px" } }, isOpen ? "▲" : "▼")
+                  ),
+                  isOpen && e("div", { className: "jt-history-body" },
+                    session.sets && Object.entries(session.sets).map(([exId, sets]) => {
+                      const fallbackExName = day?.exercises?.find(e => e.id === exId)?.name;
+                      const displayName = exerciseNameMap[exId] || fallbackExName || exId;
+                      return e("div", { key: exId, className: "jt-history-row" },
+                        e("span", null, displayName),
+                        e("span", { className: "jt-history-val" }, sets.map(s => `${s.weight || "BW"}×${s.reps}`).join(", "))
+                      );
+                    }),
+                    session.conditioning?.duration && e("div", { className: "jt-history-row" },
+                      e("span", null, "Duration"),
+                      e("span", { className: "jt-history-val" }, `${session.conditioning.duration} mins`)
+                    ),
+                    session.rehab && Object.entries(session.rehab).filter(([k,v]) => v).length > 0 && e("div", { className: "jt-history-row" },
+                      e("span", null, "Rehab"),
+                      e("span", { style: { color: "var(--orange)" } }, "Done")
+                    ),
+                    e("button", {
+                      className: "w-full mt-4 p-2 text-xs font-bold uppercase tracking-wider text-red-400 bg-red-950/40 border border-red-900 rounded",
+                      onClick: (evt) => { evt.stopPropagation(); onDeleteLog(storageKey); }
+                    }, "Delete This Record")
+                  )
+                );
+              })
+            )
+          );
+        }
+
+        function WorkoutScreen({ dayId, currentWeek, currentExercises, sessionSets, sessionRehab, condData, onUpdateSet, onToggleDone, onAddSet, onToggleRehab, onUpdateCond, onRenameExercise, onAddCustomExercise, onSave, onBack }) {
+          const day = PROGRAM[dayId];
+          const isDeload = DELOAD_WEEKS.includes(currentWeek);
+          return e("div", { className: "jt-screen" },
+            e("div", { className: "jt-back-bar" },
+              e("button", { className: "jt-back-btn", type: "button", onClick: onBack }, "← Dashboard"),
+              e("div", { style: { flex: 1, textAlign: 'right' } },
+                e("div", { className: "jt-workout-title" }, day.name),
+                e("div", { className: "jt-workout-sub" }, `Week ${currentWeek} ${isDeload ? "⚡ Deload" : ""}`)
               )
             ),
-            e("div", { class: "text-right shrink-0 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg" },
-              e("span", { class: "text-lime-400 font-bold text-md tracking-tight block" }, `${rec.calcMax}`),
-              e("span", { class: "text-[9px] text-slate-500 font-bold uppercase tracking-widest block mt-0.5" }, "EST 1RM")
+            day.conditioning ? e(Fragment, null,
+              e(SectionHeader, { title: "Conditioning Tracking" }),
+              e(ConditioningCard, { day: day, condData: condData, onUpdateCond: onUpdateCond })
+            ) : e(Fragment, null,
+              e(SectionHeader, { title: isDeload ? "⚡ Deload Target — Volume Cut Active" : "Exercises (Tap title to Swap)" }),
+              currentExercises.map(ex => e(ExerciseCard, {
+                key: ex.id, ex: ex, sets: sessionSets[ex.id] || [],
+                onUpdateSet: (i, field, val) => onUpdateSet(ex.id, i, field, val),
+                onToggleDone: (i) => onToggleDone(ex.id, i),
+                onAddSet: () => onAddSet(ex.id, ex),
+                onRenameExercise: (newName) => onRenameExercise(ex.id, newName)
+              })),
+              e("div", { style: { padding: '0 16px 10px' } },
+                e("button", {
+                  type: "button",
+                  onClick: onAddCustomExercise,
+                  className: "w-full p-3 text-xs font-bold uppercase tracking-wider text-lime-400 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all"
+                }, "+ Add Custom Exercise to Session")
+              )
+            ),
+            day.rehab?.length > 0 && e(Fragment, null,
+              e(SectionHeader, { title: "Rehab" }),
+              e("div", { className: "jt-rehab-card" },
+                day.rehab.map(name => e(RehabItem, { key: name, name: name, done: !!sessionRehab[name], onToggle: () => onToggleRehab(name) }))
+              )
+            ),
+            e("div", { className: "jt-save-area" },
+              e("button", { className: "jt-save-btn", type: "button", onClick: onSave }, "Commit Workout to Logs")
             )
-          ))
-        )
-      );
-    }
+          );
+        }
 
-    // Mount execution engine frame bounds
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
-    root.render(e(App));
-  </script>
-</body>
+        // ─── MAIN APP SYSTEM ────────────────────────────────────────────────────────────
+        function App() {
+          const [tab, setTab] = useState("home");
+          const [currentWeek, setCurrentWeek] = useState(() => storage.get("jt_current_week") || 1);
+          const [completedDays, setCompletedDays] = useState(new Set());
+          const [activeDay, setActiveDay] = useState(null);
+          
+          // Workspace track copies
+          const [currentExercises, setCurrentExercises] = useState([]);
+          const [sessionSets, setSessionSets] = useState({});
+          const [sessionRehab, setSessionRehab] = useState({});
+          const [customExerciseMeta, setCustomExerciseMeta] = useState({});
+          const [condData, setCondData] = useState({ duration: "", notes: "" });
+          
+          const [sessions, setSessions] = useState([]);
+          const [toast, setToast] = useState({ msg: "", show: false });
+          const toastTimer = useRef(null);
+
+          const triggerToast = (msg) => {
+            if (toastTimer.current) clearTimeout(toastTimer.current);
+            setToast({ msg, show: true });
+            toastTimer.current = setTimeout(() => setToast({ msg: "", show: false }), 2200);
+          };
+
+          const refreshLogs = useCallback(() => {
+            const loaded = storage.list()
+              .filter(k => k.startsWith("workout:"))
+              .sort()
+              .reverse()
+              .map(k => {
+                const session = storage.get(k);
+                if (session && !session.timestamp) {
+                  const parts = k.split(":");
+                  session.timestamp = parts[3] ? parseInt(parts[3]) : new Date(session.date).getTime();
+                }
+                return session;
+              })
+              .filter(Boolean);
+            setSessions(loaded);
+            
+            const done = new Set();
+            loaded.forEach(s => { if (s.week === currentWeek) done.add(s.dayId); });
+            setCompletedDays(done);
+          }, [currentWeek]);
+
+          useEffect(() => {
+            const el = document.createElement("style");
+            el.textContent = CSS;
+            document.head.appendChild(el);
+            return () => { if (document.head.contains(el)) document.head.removeChild(el); };
+          }, []);
+
+          useEffect(() => {
+            storage.set("jt_current_week", currentWeek);
+            refreshLogs();
+          }, [currentWeek, refreshLogs]);
+
+          useEffect(() => {
+            if (tab === "history" || tab === "dashboard") { refreshLogs(); }
+          }, [tab, refreshLogs]);
+
+          const handleSelectDay = useCallback((dayId) => {
+            const day = PROGRAM[dayId];
+            const isDeload = DELOAD_WEEKS.includes(currentWeek);
+            
+            // Build editable array layouts
+            const clonedExercises = [...(day.exercises || [])];
+            const sets = {};
+            const meta = {};
+            
+            clonedExercises.forEach(ex => {
+              const prev = getPreviousData(dayId, ex.id);
+              sets[ex.id] = initSets(ex, prev, isDeload);
+              meta[ex.id] = ex.name;
+            });
+
+            const rehab = {};
+            for (const r of (day.rehab || [])) rehab[r] = false;
+            
+            setCurrentExercises(clonedExercises);
+            setSessionSets(sets);
+            setSessionRehab(rehab);
+            setCustomExerciseMeta(meta);
+            setCondData({ duration: "", notes: "" });
+            setActiveDay(dayId);
+            setTab("workout");
+          }, [currentWeek]);
+
+          const handleRenameExercise = useCallback((exId, newName) => {
+            setCurrentExercises(prev => prev.map(ex => ex.id === exId ? { ...ex, name: newName, isSwapped: true } : ex));
+            setCustomExerciseMeta(prev => ({ ...prev, [exId]: newName }));
+          }, []);
+
+          const handleAddCustomExercise = useCallback(() => {
+            const customId = `custom_${Date.now()}`;
+            const customEx = {
+              id: customId,
+              name: "Custom Exercise",
+              sets: 3,
+              reps: "10",
+              prescription: "3×10",
+              note: "Added ad-hoc to session",
+              isCustom: true
+            };
+
+            setCurrentExercises(prev => [...prev, customEx]);
+            setSessionSets(prev => ({
+              ...prev,
+              [customId]: Array.from({ length: 3 }, () => ({ weight: "", reps: "10", targetReps: "10", done: false }))
+            }));
+            setCustomExerciseMeta(prev => ({ ...prev, [customId]: "Custom Exercise" }));
+          }, []);
+
+          const handleUpdateSet = useCallback((exId, i, field, val) => {
+            setSessionSets(prev => ({
+              ...prev,
+              [exId]: prev[exId].map((s, idx) => idx === i ? { ...s, [field]: val } : s)
+            }));
+          }, []);
+
+          const handleToggleDone = useCallback((exId, i) => {
+            setSessionSets(prev => ({
+              ...prev,
+              [exId]: prev[exId].map((s, idx) => idx === i ? { ...s, done: !s.done } : s)
+            }));
+          }, []);
+
+          const handleAddSet = useCallback((exId, ex) => {
+            setSessionSets(prev => {
+              const sets = prev[exId] || [];
+              const last = sets[sets.length - 1];
+              return {
+                ...prev,
+                [exId]: [...sets, { weight: last?.weight ?? "", reps: last?.reps ?? String(ex.reps), targetReps: String(ex.reps), done: false }]
+              };
+            });
+          }, []);
+
+          const handleToggleRehab = useCallback((name) => {
+            setSessionRehab(prev => ({ ...prev, [name]: !prev[name] }));
+          }, []);
+
+          const handleUpdateCond = useCallback((field, val) => {
+            setCondData(prev => ({ ...prev, [field]: val }));
+          }, []);
+
+          const handleSave = useCallback(() => {
+            const now = new Date();
+            const dateStr = now.toISOString().split("T")[0];
+            const timestamp = now.getTime();
+            storage.set(`workout:${activeDay}:${dateStr}:${timestamp}`, {
+              dayId: activeDay, week: currentWeek, date: dateStr, timestamp,
+              sets: sessionSets, rehab: sessionRehab, conditioning: condData,
+              customExerciseMeta: customExerciseMeta // Locks name swaps and additions permanently to this entry log
+            });
+            triggerToast("Workout Tracked ✓");
+            setTab("home");
+            setActiveDay(null);
+          }, [activeDay, currentWeek, sessionSets, sessionRehab, condData, customExerciseMeta]);
+
+          const handleDeleteLog = useCallback((key) => {
+            if (confirm("Permanently delete this entry from database?")) {
+              storage.remove(key);
+              refreshLogs();
+              triggerToast("Record Purged");
+            }
+          }, [refreshLogs]);
+
+          const handleExportBackup = () => {
+            const db = {};
+            storage.list().forEach(k => { db[k] = localStorage.getItem(k); });
+            const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `matrix_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            triggerToast("Backup Downloaded");
+          };
+
+          const handleImportBackup = (evt) => {
+            const file = evt.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const parsed = JSON.parse(e.target.result);
+                Object.entries(parsed).forEach(([k, v]) => { localStorage.setItem(k, v); });
+                refreshLogs();
+                triggerToast("Database Restored");
+              } catch (err) { alert("Invalid matrix backup payload."); }
+            };
+            reader.readAsText(file);
+          };
+
+          const handleWipeDatabase = () => {
+            if (confirm("DANGER: Wipe all workout records permanently? This cannot be undone.")) {
+              storage.list().filter(k => k.startsWith("workout:")).forEach(k => storage.remove(k));
+              refreshLogs();
+              triggerToast("Database Cleared");
+            }
+          };
+
+          return e("div", { className: "jt-root" },
+            e("div", { className: "jt-header" },
+              e("div", { className: "jt-header-title" }, "Jake's Trainer"),
+              e("div", { className: "jt-header-sub" }, "System Online")
+            ),
+            tab === "home" && e(HomeScreen, { currentWeek, setCurrentWeek, completedDays, onSelectDay: handleSelectDay }),
+            tab === "workout" && activeDay && e(WorkoutScreen, {
+              dayId: activeDay, currentWeek, currentExercises, sessionSets, sessionRehab, condData,
+              onUpdateSet: handleUpdateSet, onToggleDone: handleToggleDone, onAddSet: handleAddSet,
+              onToggleRehab: handleToggleRehab, onUpdateCond: handleUpdateCond, onRenameExercise: handleRenameExercise,
+              onAddCustomExercise: handleAddCustomExercise, onSave: handleSave,
+              onBack: () => { setTab("home"); setActiveDay(null); }
+            }),
+            tab === "history" && e(HistoryScreen, { sessions, onDeleteLog: handleDeleteLog, onBackup: handleExportBackup, onRestore: handleImportBackup, onWipe: handleWipeDatabase }),
+            tab === "dashboard" && e(DashboardScreen, { sessions }),
+            e("div", { className: "jt-bottom-nav" },
+              e("button", { className: `jt-nav-btn ${tab === "home" || tab === "workout" ? 'active' : ''}`, onClick: () => { setActiveDay(null); setTab("home"); } },
+                e("span", { className: "jt-nav-icon" }, "■"), e("span", { className: "jt-nav-label" }, "Train")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "dashboard" ? 'active' : ''}`, onClick: () => setTab("dashboard") },
+                e("span", { className: "jt-nav-icon" }, "▲"), e("span", { className: "jt-nav-label" }, "Metrics")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "history" ? 'active' : ''}`, onClick: () => setTab("history") },
+                e("span", { className: "jt-nav-icon" }, "◎"), e("span", { className: "jt-nav-label" }, "History")
+              )
+            ),
+            e("div", { className: `jt-toast ${toast.show ? 'show' : ''}` }, toast.msg)
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(e(App));
+      });
+    </script>
+  </body>
 </html>
