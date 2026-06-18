@@ -610,5 +610,5 @@ function App() {
 }
 
 // Render root element initialization sequence
-const root = AzadReactDOM.createRoot(document.getElementById("root"));
+const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
