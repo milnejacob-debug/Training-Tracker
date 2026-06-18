@@ -257,7 +257,14 @@
           .jt-ai-li::before { content: "▪"; position: absolute; left: 0; top: 0; color: var(--accent); font-size: 10px; }
         `;
 
-        // ─── COMPONENTS ────────────────────────────────────────────────────────────────
+        // ─── UI STRUCTURE PARTS ────────────────────────────────────────────────────────
+        function SectionHeader({ title }) {
+          return e("div", { className: "jt-section-header" },
+            e("span", { className: "jt-section-title" }, title),
+            e("div", { className: "jt-divider" })
+          );
+        }
+
         function StepperInput({ value, onChange, isDone, step, placeholder }) {
           const handleStep = (dir) => {
             const current = parseFloat(value) || 0;
@@ -321,6 +328,28 @@
             ex.note && e("div", { className: "jt-ex-note" }, ex.note),
             e("div", null, rows),
             e("button", { type: "button", className: "jt-add-set-btn mt-2", onClick: onAddSet }, "+ Add Custom Set")
+          );
+        }
+
+        function ConditioningCard({ day, condData, onUpdateCond }) {
+          return e("div", { className: "jt-cond-card" },
+            e("div", { className: "jt-cond-desc" }, day.focus),
+            e("div", { className: "jt-duration-row" },
+              e("span", { style: { fontSize: '13px', color: 'var(--text-dim)' } }, "Duration (mins):"),
+              e("input", {
+                type: "number",
+                className: "jt-duration-input",
+                value: condData.duration,
+                placeholder: "0",
+                onChange: evt => onUpdateCond("duration", evt.target.value)
+              })
+            ),
+            e("textarea", {
+              className: "jt-cond-textarea",
+              placeholder: "Log target HR zones, pacing, terrain load, or notes here...",
+              value: condData.notes,
+              onChange: evt => onUpdateCond("notes", evt.target.value)
+            })
           );
         }
 
@@ -397,7 +426,7 @@
           );
         }
 
-        // ─── AI INSIGHTS SCREEN (UPDATED FOR DUAL LOG & HISTORIC FORECAST) ────────────
+        // ─── AI INSIGHTS SCREEN ────────────────────────────────────────────────────────
         function InsightsScreen({ currentWeek, sessions, onTriggerToast }) {
           const [loading, setLoading] = useState(false);
           const [insightData, setInsightData] = useState(() => storage.get("jt_weekly_insights") || null);
@@ -417,7 +446,6 @@
               const hasZone2Explicit = conditionNotesCombined.toLowerCase().includes("zone 2") || conditionNotesCombined.toLowerCase().includes("z2");
               const hasHockeyExplicit = conditionNotesCombined.toLowerCase().includes("hockey") || conditionNotesCombined.toLowerCase().includes("skate");
               
-              // Compute dynamic trajectory evaluations based on total active record count
               const trajectoryStatus = priorWeeksLogs.length >= 3 
                 ? "STATUS CONFIRMED: SUSTAINED PROGRESSIVE OVERLOAD BASE"
                 : "STATUS INITIALIZING: ESTABLISHING OPERATIONAL TRAINING VOLUME";
@@ -654,14 +682,12 @@
           const [completedDays, setCompletedDays] = useState(new Set());
           const [activeDay, setActiveDay] = useState(null);
           
-          // Workspace tracking matrices
           const [currentExercises, setCurrentExercises] = useState([]);
           const [sessionSets, setSessionSets] = useState({});
           const [sessionRehab, setSessionRehab] = useState({});
           const [customExerciseMeta, setCustomExerciseMeta] = useState({});
           const [condData, setCondData] = useState({ duration: "", notes: "" });
           
-          // Persistence override container objects
           const [programOverrides, setProgramOverrides] = useState(() => storage.get("jt_program_overrides") || {});
           
           const [sessions, setSessions] = useState([]);
@@ -715,7 +741,6 @@
             const day = PROGRAM[dayId];
             const isDeload = DELOAD_WEEKS.includes(currentWeek);
             
-            // Build editable workspace, pulling structural overrides if recorded
             const clonedExercises = (day.exercises || []).map(ex => {
               const persistentOverrideName = programOverrides[ex.id];
               return persistentOverrideName 
@@ -744,7 +769,6 @@
             setTab("workout");
           }, [currentWeek, programOverrides]);
 
-          // Renames exercise and updates persistent global layers for future initialization cycles
           const handleRenameExercise = useCallback((exId, newName) => {
             setCurrentExercises(prev => prev.map(ex => ex.id === exId ? { ...ex, name: newName, isSwapped: true } : ex));
             setCustomExerciseMeta(prev => ({ ...prev, [exId]: newName }));
