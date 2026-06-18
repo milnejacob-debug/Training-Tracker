@@ -87,6 +87,9 @@
           set: (key, val) => {
             try { localStorage.setItem(key, JSON.stringify(val)); } catch (err) {}
           },
+          remove: (key) => {
+            try { localStorage.removeItem(key); } catch (err) {}
+          },
           list: () => {
             try { return Object.keys(localStorage); } catch (err) { return []; }
           }
@@ -138,6 +141,14 @@
             }
             return { weight, reps: String(ex.reps), targetReps: String(ex.reps), done: false };
           });
+        }
+
+        function calculate1RM(weight, reps) {
+          const w = parseFloat(weight);
+          const r = parseInt(reps);
+          if (isNaN(w) || isNaN(r) || r <= 0) return 0;
+          if (r === 1) return w;
+          return Math.round(w * (1 + r / 30));
         }
 
         // ─── STYLES (CSS INJECT) ───────────────────────────────────────────────────────
@@ -221,10 +232,19 @@
           .jt-history-header { padding: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
           .jt-history-title { font-size: 15px; font-weight: 700; }
           .jt-history-date { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
-          .jt-history-body { padding: 0 14px 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); }
-          .jt-history-row { font-size: 13px; font-family: var(--mono); color: var(--text-dim); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+          .jt-history-body { padding: 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+          .jt-history-row { font-size: 13px; font-family: var(--mono); color: var(--text-dim); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
           .jt-history-row:last-child { border-bottom: none; }
           .jt-history-val { color: var(--accent); font-weight: 600; }
+          .jt-db-panel { margin: 16px; padding: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); display: flex; gap: 8px; }
+          .jt-db-btn { flex: 1; padding: 10px; font-family: var(--mono); font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-align: center; }
+          .jt-db-btn.danger { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+          .jt-dash-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+          .jt-metric-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+          .jt-metric-name { font-size: 14px; font-weight: 600; }
+          .jt-metric-val { font-size: 16px; font-family: var(--mono); color: var(--accent); font-weight: 700; }
+          .jt-bar-container { background: var(--surface2); height: 8px; border-radius: 4px; overflow: hidden; width: 100%; position: relative; }
+          .jt-bar-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width 0.3s ease; }
         `;
 
         // ─── COMPONENTS ────────────────────────────────────────────────────────────────
@@ -309,7 +329,66 @@
           );
         }
 
-        // ─── VIEWS ─────────────────────────────────────────────────────────────────────
+        // ─── NEW VIEW: DASHBOARD ───────────────────────────────────────────────────────
+        function DashboardScreen({ sessions }) {
+          const trackedLifts = [
+            { id: "squat", name: "Barbell Squat" },
+            { id: "bench", name: "Barbell Bench Press" },
+            { id: "trapbar", name: "Trap Bar Deadlift" },
+            { id: "row", name: "Barbell Row" },
+            { id: "pullup", name: "Weighted Pull-Up" }
+          ];
+
+          const maxes = {};
+          trackedLifts.forEach(l => { maxes[l.id] = { max: 0, history: [] }; });
+
+          // Parse records in chronological order
+          [...sessions].reverse().forEach(s => {
+            if (!s.sets) return;
+            Object.entries(s.sets).forEach(([exId, setList]) => {
+              if (maxes[exId]) {
+                setList.forEach(set => {
+                  if (set.done && set.weight && set.weight !== "BW") {
+                    const estimated1RM = calculate1RM(set.weight, set.reps);
+                    if (estimated1RM > maxes[exId].max) {
+                      maxes[exId].max = estimated1RM;
+                    }
+                  }
+                });
+              }
+            });
+          });
+
+          // Absolute max reference ceiling for progress bars
+          const references = { squat: 400, bench: 300, trapbar: 500, row: 250, pullup: 100 };
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Estimated 1-Rep Max Metrics" }),
+            trackedLifts.map(lift => {
+              const score = maxes[lift.id].max;
+              const refCeiling = references[lift.id];
+              const pct = Math.min(100, Math.max(5, Math.round((score / refCeiling) * 100))) || 0;
+              return e("div", { key: lift.id, className: "jt-dash-card" },
+                e("div", { className: "jt-metric-row" },
+                  e("span", { className: "jt-metric-name" }, lift.name),
+                  e("span", { className: "jt-metric-val" }, score > 0 ? `${score} lbs` : "No data")
+                ),
+                score > 0 && e("div", { className: "jt-bar-container" },
+                  e("div", { className: "jt-bar-fill", style: { width: `${pct}%` } })
+                )
+              );
+            }),
+            e(SectionHeader, { title: "Aerobic Base Volume" }),
+            e("div", { className: "jt-dash-card" },
+              e("div", { className: "jt-metric-row" },
+                e("span", { className: "jt-metric-name" }, "Total Conditioning Sessions Completed"),
+                e("span", { className: "jt-metric-val" }, sessions.filter(s => s.conditioning?.duration).length)
+              )
+            )
+          );
+        }
+
+        // ─── VIEWS: HOME & HISTORY ─────────────────────────────────────────────────────
         function HomeScreen({ currentWeek, setCurrentWeek, completedDays, onSelectDay }) {
           return e("div", { className: "jt-screen" },
             e(SectionHeader, { title: "Training Week" }),
@@ -333,6 +412,65 @@
                   e("div", { className: "jt-day-name" }, day.name),
                   e("div", { className: "jt-day-focus" }, day.focus),
                   done && e("div", { className: "jt-done-badge" }, "✓")
+                );
+              })
+            )
+          );
+        }
+
+        function HistoryScreen({ sessions, onDeleteLog, onBackup, onRestore, onWipe }) {
+          const [expanded, setExpanded] = useState(new Set());
+          const fileInputRef = useRef(null);
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Database Architecture Tools" }),
+            e("div", { className: "jt-db-panel" },
+              e("button", { className: "jt-db-btn", onClick: onBackup }, "Export Backup"),
+              e("button", { className: "jt-db-btn", onClick: () => fileInputRef.current?.click() }, "Import Backup"),
+              e("button", { className: "jt-db-btn danger", onClick: onWipe }, "Wipe Database"),
+              e("input", { type: "file", ref: fileInputRef, style: { display: 'none' }, accept: ".json", onChange: onRestore })
+            ),
+            e(SectionHeader, { title: "Performance History Logs" }),
+            !sessions.length ? e("div", { className: "jt-empty" }, e("p", null, "No logged training operations found.")) : e("div", null,
+              sessions.map((session, idx) => {
+                const day = PROGRAM[session.dayId];
+                const isOpen = expanded.has(idx);
+                const storageKey = `workout:${session.dayId}:${session.date}:${session.timestamp}`;
+                return e("div", { key: idx, className: "jt-history-entry" },
+                  e("div", {
+                    className: "jt-history-header", onClick: () => {
+                      const next = new Set(expanded);
+                      isOpen ? next.delete(idx) : next.add(idx);
+                      setExpanded(next);
+                    }
+                  },
+                    e("div", null,
+                      e("div", { className: "jt-history-title" }, `${day?.name ?? session.dayId} — Wk ${session.week}`),
+                      e("div", { className: "jt-history-date" }, formatDate(session.date))
+                    ),
+                    e("div", { style: { color: "var(--text-dimmer)", fontSize: "14px" } }, isOpen ? "▲" : "▼")
+                  ),
+                  isOpen && e("div", { className: "jt-history-body" },
+                    session.sets && Object.entries(session.sets).map(([exId, sets]) => {
+                      const ex = day?.exercises?.find(e => e.id === exId);
+                      return e("div", { key: exId, className: "jt-history-row" },
+                        e("span", null, ex?.name ?? exId),
+                        e("span", { className: "jt-history-val" }, sets.map(s => `${s.weight || "BW"}×${s.reps}`).join(", "))
+                      );
+                    }),
+                    session.conditioning?.duration && e("div", { className: "jt-history-row" },
+                      e("span", null, "Duration"),
+                      e("span", { className: "jt-history-val" }, `${session.conditioning.duration} mins`)
+                    ),
+                    session.rehab && Object.entries(session.rehab).filter(([k,v]) => v).length > 0 && e("div", { className: "jt-history-row" },
+                      e("span", null, "Rehab"),
+                      e("span", { style: { color: "var(--orange)" } }, "Done")
+                    ),
+                    e("button", {
+                      className: "w-full mt-4 p-2 text-xs font-bold uppercase tracking-wider text-red-400 bg-red-950/40 border border-red-900 rounded",
+                      onClick: (evt) => { evt.stopPropagation(); onDeleteLog(storageKey); }
+                    }, "Delete This Record")
+                  )
                 );
               })
             )
@@ -374,57 +512,6 @@
           );
         }
 
-        function HistoryScreen({ sessions }) {
-          const [expanded, setExpanded] = useState(new Set());
-          if (!sessions.length) {
-            return e("div", { className: "jt-screen" },
-              e(SectionHeader, { title: "Database Logs" }),
-              e("div", { className: "jt-empty" }, e("p", null, "No logged training operations found."))
-            );
-          }
-          return e("div", { className: "jt-screen" },
-            e(SectionHeader, { title: "Performance History Logs" }),
-            e("div", null,
-              sessions.map((session, idx) => {
-                const day = PROGRAM[session.dayId];
-                const isOpen = expanded.has(idx);
-                return e("div", { key: idx, className: "jt-history-entry" },
-                  e("div", {
-                    className: "jt-history-header", onClick: () => {
-                      const next = new Set(expanded);
-                      isOpen ? next.delete(idx) : next.add(idx);
-                      setExpanded(next);
-                    }
-                  },
-                    e("div", null,
-                      e("div", { className: "jt-history-title" }, `${day?.name ?? session.dayId} — Wk ${session.week}`),
-                      e("div", { className: "jt-history-date" }, formatDate(session.date))
-                    ),
-                    e("div", { style: { color: "var(--text-dimmer)", fontSize: "14px" } }, isOpen ? "▲" : "▼")
-                  ),
-                  isOpen && e("div", { className: "jt-history-body" },
-                    session.sets && Object.entries(session.sets).map(([exId, sets]) => {
-                      const ex = day?.exercises?.find(e => e.id === exId);
-                      return e("div", { key: exId, className: "jt-history-row" },
-                        e("span", null, ex?.name ?? exId),
-                        e("span", { className: "jt-history-val" }, sets.map(s => `${s.weight || "BW"}×${s.reps}`).join(", "))
-                      );
-                    }),
-                    session.conditioning?.duration && e("div", { className: "jt-history-row" },
-                      e("span", null, "Duration"),
-                      e("span", { className: "jt-history-val" }, `${session.conditioning.duration} mins`)
-                    ),
-                    session.rehab && Object.entries(session.rehab).filter(([k,v]) => v).length > 0 && e("div", { className: "jt-history-row" },
-                      e("span", null, "Rehab"),
-                      e("span", { style: { color: "var(--orange)" } }, "Done")
-                    )
-                  )
-                );
-              })
-            )
-          );
-        }
-
         // ─── MAIN APP SYSTEM ────────────────────────────────────────────────────────────
         function App() {
           const [tab, setTab] = useState("home");
@@ -438,6 +525,34 @@
           const [toast, setToast] = useState({ msg: "", show: false });
           const toastTimer = useRef(null);
 
+          const triggerToast = (msg) => {
+            if (toastTimer.current) clearTimeout(toastTimer.current);
+            setToast({ msg, show: true });
+            toastTimer.current = setTimeout(() => setToast({ msg: "", show: false }), 2200);
+          };
+
+          const refreshLogs = useCallback(() => {
+            const loaded = storage.list()
+              .filter(k => k.startsWith("workout:"))
+              .sort()
+              .reverse()
+              .map(k => {
+                const session = storage.get(k);
+                // Backwards compatibility inject for entries missing direct structural identifiers
+                if (session && !session.timestamp) {
+                  const parts = k.split(":");
+                  session.timestamp = parts[3] ? parseInt(parts[3]) : new Date(session.date).getTime();
+                }
+                return session;
+              })
+              .filter(Boolean);
+            setSessions(loaded);
+            
+            const done = new Set();
+            loaded.forEach(s => { if (s.week === currentWeek) done.add(s.dayId); });
+            setCompletedDays(done);
+          }, [currentWeek]);
+
           useEffect(() => {
             const el = document.createElement("style");
             el.textContent = CSS;
@@ -447,19 +562,12 @@
 
           useEffect(() => {
             storage.set("jt_current_week", currentWeek);
-            const done = new Set();
-            storage.list().filter(k => k.startsWith("workout:")).forEach(k => {
-              const s = storage.get(k);
-              if (s?.week === currentWeek) done.add(s.dayId);
-            });
-            setCompletedDays(done);
-          }, [currentWeek]);
+            refreshLogs();
+          }, [currentWeek, refreshLogs]);
 
           useEffect(() => {
-            if (tab !== "history") return;
-            const loaded = storage.list().filter(k => k.startsWith("workout:")).sort().reverse().map(k => storage.get(k)).filter(Boolean);
-            setSessions(loaded);
-          }, [tab]);
+            if (tab === "history" || tab === "dashboard") { refreshLogs(); }
+          }, [tab, refreshLogs]);
 
           const handleSelectDay = useCallback((dayId) => {
             const day = PROGRAM[dayId];
@@ -519,13 +627,54 @@
               dayId: activeDay, week: currentWeek, date: dateStr, timestamp,
               sets: sessionSets, rehab: sessionRehab, conditioning: condData,
             });
-            setCompletedDays(prev => new Set([...prev, activeDay]));
-            if (toastTimer.current) clearTimeout(toastTimer.current);
-            setToast({ msg: "Workout Tracked ✓", show: true });
-            toastTimer.current = setTimeout(() => setToast({ msg: "", show: false }), 2200);
+            triggerToast("Workout Tracked ✓");
             setTab("home");
             setActiveDay(null);
           }, [activeDay, currentWeek, sessionSets, sessionRehab, condData]);
+
+          const handleDeleteLog = useCallback((key) => {
+            if (confirm("Permanently delete this entry from database?")) {
+              storage.remove(key);
+              refreshLogs();
+              triggerToast("Record Purged");
+            }
+          }, [refreshLogs]);
+
+          const handleExportBackup = () => {
+            const db = {};
+            storage.list().forEach(k => { db[k] = localStorage.getItem(k); });
+            const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `matrix_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            triggerToast("Backup Downloaded");
+          };
+
+          const handleImportBackup = (evt) => {
+            const file = evt.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const parsed = JSON.parse(e.target.result);
+                Object.entries(parsed).forEach(([k, v]) => { localStorage.setItem(k, v); });
+                refreshLogs();
+                triggerToast("Database Restored");
+              } catch (err) { alert("Invalid matrix backup payload."); }
+            };
+            reader.readAsText(file);
+          };
+
+          const handleWipeDatabase = () => {
+            if (confirm("DANGER: Wipe all workout records permanently? This cannot be undone.")) {
+              storage.list().filter(k => k.startsWith("workout:")).forEach(k => storage.remove(k));
+              refreshLogs();
+              triggerToast("Database Cleared");
+            }
+          };
 
           return e("div", { className: "jt-root" },
             e("div", { className: "jt-header" },
@@ -539,10 +688,14 @@
               onToggleRehab: handleToggleRehab, onUpdateCond: handleUpdateCond, onSave: handleSave,
               onBack: () => { setTab("home"); setActiveDay(null); }
             }),
-            tab === "history" && e(HistoryScreen, { sessions }),
+            tab === "history" && e(HistoryScreen, { sessions, onDeleteLog: handleDeleteLog, onBackup: handleExportBackup, onRestore: handleImportBackup, onWipe: handleWipeDatabase }),
+            tab === "dashboard" && e(DashboardScreen, { sessions }),
             e("div", { className: "jt-bottom-nav" },
               e("button", { className: `jt-nav-btn ${tab === "home" || tab === "workout" ? 'active' : ''}`, onClick: () => { setActiveDay(null); setTab("home"); } },
                 e("span", { className: "jt-nav-icon" }, "■"), e("span", { className: "jt-nav-label" }, "Train")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "dashboard" ? 'active' : ''}`, onClick: () => setTab("dashboard") },
+                e("span", { className: "jt-nav-icon" }, "▲"), e("span", { className: "jt-nav-label" }, "Metrics")
               ),
               e("button", { className: `jt-nav-btn ${tab === "history" ? 'active' : ''}`, onClick: () => setTab("history") },
                 e("span", { className: "jt-nav-icon" }, "◎"), e("span", { className: "jt-nav-label" }, "History")
