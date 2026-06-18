@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Training Log & Block Builder</title>
+    <title>Hybrid Training Engine & Block Builder</title>
     <style>
         :root {
             --bg-primary: #121212;
@@ -37,7 +37,7 @@
             margin-bottom: 20px;
         }
         h1, h2, h3 { margin: 0 0 10px 0; font-weight: 600; }
-        h1 { color: #fff; }
+        h1 { color: #fff; margin: 0; }
         .btn {
             background-color: var(--bg-surface-elevated);
             color: var(--text-primary);
@@ -64,25 +64,25 @@
         .tab.active { background-color: var(--bg-surface); color: var(--accent); font-weight: 600; }
         
         .card { background-color: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
-        .flex-group { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         
         .week-selector { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .week-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .week-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); padding: 8px 12px; border-radius: 4px; cursor: pointer; min-width: 80px; text-align: center; }
         .week-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
         
-        .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 25px; }
+        .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 25px; }
         .day-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); padding: 12px; border-radius: 6px; cursor: pointer; text-align: left; }
         .day-btn.active { background: var(--bg-surface-elevated); border-color: var(--accent); }
-        .day-btn .day-title { font-weight: 600; font-size: 0.9rem; }
-        .day-btn .day-focus { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+        .day-btn .day-title { font-weight: 600; font-size: 0.9rem; color: #fff; }
+        .day-btn .day-focus { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .exercise-row { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr 1fr; gap: 15px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .exercise-row { display: grid; grid-template-columns: 2.5fr 1fr 1fr 1.5fr 1.5fr; gap: 15px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .exercise-row.header { font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border); padding-bottom: 6px; }
+        
         input[type="text"], input[type="number"], textarea {
             background-color: var(--bg-primary);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            padding: 6px 10px;
+            padding: 8px 10px;
             border-radius: 4px;
             width: 100%;
             box-sizing: border-box;
@@ -93,8 +93,8 @@
         .manifest-table th, .manifest-table td { padding: 12px; border: 1px solid var(--border); text-align: left; }
         .manifest-table th { background-color: var(--bg-surface-elevated); color: var(--text-secondary); }
         
-        .backup-controls { display: flex; gap: 10px; font-size: 0.85rem; }
-        .flag-tag { background: #332211; color: #ff9800; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; display: inline-block; margin-top: 2px; }
+        .backup-controls { display: flex; gap: 12px; font-size: 0.85rem; margin-top: 4px; }
+        .flag-tag { background: #332211; color: #ff9800; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; display: inline-block; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -110,8 +110,8 @@
             </div>
         </div>
         <div id="block-info" style="text-align: right;">
-            <h3 id="display-block-name">Loading...</h3>
-            <span id="display-block-weeks" style="color: var(--text-secondary); font-size:0.9rem;"></span>
+            <h3 id="display-block-name" style="color: var(--accent);">Block 1</h3>
+            <span id="display-block-weeks" style="color: var(--text-secondary); font-size:0.9rem;">Weeks 1 - 4</span>
         </div>
     </header>
 
@@ -127,13 +127,13 @@
 
         <div class="card" id="workout-card" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 id="workout-title">Select a day</h2>
+                <h2 id="workout-title" style="color:#fff; margin:0;">Select a day</h2>
                 <button class="btn btn-primary" onclick="saveCurrentDay()">Save Day Log</button>
             </div>
             <div id="exercise-list"></div>
-            <div style="margin-top:20px;">
-                <h3 style="font-size:1rem; color:var(--text-secondary);">Conditioning & Session Notes</h3>
-                <textarea id="session-notes" rows="4" placeholder="Enter cardo metrics, run splits, or execution feedback..."></textarea>
+            <div style="margin-top:25px;">
+                <h3 style="font-size:1rem; color:var(--text-secondary);">Conditioning Metrics & Session Feedback</h3>
+                <textarea id="session-notes" rows="5" placeholder="Enter running distances, pacing metrics, bike stats, or subjective physical notes..."></textarea>
             </div>
         </div>
     </div>
@@ -143,7 +143,7 @@
         <div class="card">
             <h2>Algorithmic Block Generation</h2>
             <p style="color:var(--text-secondary); font-size:0.95rem;">
-                This engine scans your active 4-week block performance history. If your logged metrics match or exceed target rep requirements, it scales baseline intensity via progressive overload logic. Structural components (e.g., ATG Split Squats) remain locked to bodyweight or safety targets automatically.
+                This engine runs a local assessment sequence on your active 4-week block history. If logged parameters meet baseline rep thresholds, compound lift intensities scale upward systematically while isolated mobility structural markers remain clamped to safe bodyweight metrics.
             </p>
             <div style="margin-top:20px;">
                 <button class="btn btn-primary" onclick="generateNextBlockDraft()">Calculate Next 4-Week Block</button>
@@ -152,22 +152,22 @@
         </div>
 
         <div class="card" id="draft-card" style="display:none;">
-            <h2>Draft Manifest: Review Upcoming Cycles</h2>
-            <p style="color:var(--text-secondary); font-size:0.9rem;">Review or modify the calculated load targets before writing them to the active schedule database.</p>
+            <h2>Draft Manifest: Review Upcoming Cycle Progression</h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Review or modify the calculated load rules before committing them to the live template array maps.</p>
             
             <table class="manifest-table">
                 <thead>
                     <tr>
-                        <th>Exercise Pattern</th>
-                        <th>Prior Block Profile</th>
+                        <th>Movement Pattern</th>
+                        <th>Prior Block Target</th>
                         <th>Calculated Target Profile</th>
-                        <th style="width: 120px;">Manual Tweak</th>
+                        <th style="width: 140px;">Manual Tweak Override</th>
                     </tr>
                 </thead>
                 <tbody id="manifest-rows"></tbody>
             </table>
 
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
                 <button class="btn" onclick="document.getElementById('draft-card').style.display='none'">Discard Draft</button>
                 <button class="btn btn-primary" onclick="commitDraftBlock()">Commit Block to Live Calendar</button>
             </div>
@@ -176,18 +176,18 @@
 </div>
 
 <script>
-    // System State
+    // System Structural Layout State Engine
     let appState = {
         currentBlock: 1,
         startWeek: 1,
         endWeek: 4,
         activeWeek: 1,
-        activeDayId: null,
-        program: {}, // Week -> Day -> Exercises/Notes
-        exercisesMaster: {} // Tracks movement configs & safety locks
+        activeDayId: "d1",
+        program: {},
+        exercisesMaster: {}
     };
 
-    // Baseline configuration template (Self-initializing)
+    // Strict Functional Base Framework Parameters
     const baselineTemplate = {
         currentBlock: 1,
         startWeek: 1,
@@ -215,20 +215,19 @@
             { name: "Bench Press", sets: 4, reps: 5, targetLoad: 275, logLoad: "", logReps: "" },
             { name: "Dumbbell Row", sets: 3, reps: 10, targetLoad: 100, logLoad: "", logReps: "" }
         ]},
-        { id: "d3", name: "Day 3", focus: "Zone 2 Engine", ex: [], notes: "Targeting 45 mins steady-state aerobic conditioning." },
-        { id: "d4", name: "Day 4", focus: "Hinge / Posterior", ex: [
+        { id: "d3", name: "Day 3", focus: "Zone 2 Engine", ex: [], notes: "Targeting 45 mins steady-state aerobic conditioning profile." },
+        { id: "d4", name: "Day 4", focus: "Hinge Strength", ex: [
             { name: "Deadlift", sets: 3, reps: 5, targetLoad: 405, logLoad: "", logReps: "" },
             { name: "Romanian Deadlift", sets: 3, reps: 8, targetLoad: 225, logLoad: "", logReps: "" }
         ]},
         { id: "d5", name: "Day 5", focus: "Upper Press Volume", ex: [
             { name: "Overhead Press", sets: 4, reps: 6, targetLoad: 165, logLoad: "", logReps: "" }
         ]},
-        { id: "d6", name: "Day 6", focus: "Conditioning / Run", ex: [], notes: "Aerobic intervals or operational trail volume." }
+        { id: "d6", name: "Day 6", focus: "Conditioning / Run", ex: [], notes: "Aerobic running matrix splits or structural multi-terrain engine tasking." }
     ];
 
     let draftManifest = [];
 
-    // Initialize Database
     function initDatabase() {
         const localData = localStorage.getItem('hybrid_engine_data');
         if (localData) {
@@ -262,7 +261,6 @@
         localStorage.setItem('hybrid_engine_data', JSON.stringify(appState));
     }
 
-    // UI Rendering
     function renderHeader() {
         document.getElementById('display-block-name').innerText = `Block ${appState.currentBlock}`;
         document.getElementById('display-block-weeks').innerText = `Weeks ${appState.startWeek} - ${appState.endWeek}`;
@@ -275,7 +273,12 @@
             const btn = document.createElement('button');
             btn.className = `week-btn ${appState.activeWeek === w ? 'active' : ''}`;
             btn.innerText = `Week ${w}`;
-            btn.onclick = () => { appState.activeWeek = w; renderWeekBar(); renderDayBar(); loadWorkoutDay(); };
+            btn.onclick = () => { 
+                appState.activeWeek = w; 
+                renderWeekBar(); 
+                renderDayBar(); 
+                loadWorkoutDay(); 
+            };
             bar.appendChild(btn);
         }
     }
@@ -293,7 +296,11 @@
                 <div class="day-title">${day.name}</div>
                 <div class="day-focus">${day.focus}</div>
             `;
-            btn.onclick = () => { appState.activeDayId = dayId; renderDayBar(); loadWorkoutDay(); };
+            btn.onclick = () => { 
+                appState.activeDayId = dayId; 
+                renderDayBar(); 
+                loadWorkoutDay(); 
+            };
             bar.appendChild(btn);
         });
     }
@@ -329,15 +336,15 @@
                         <strong>${ex.name}</strong>
                         ${config.safetyLock ? '<br><span class="flag-tag">SAFETY LOCK</span>' : ''}
                     </div>
-                    <div style="color:var(--text-secondary);">${displayTarget}</div>
-                    <div style="color:var(--text-secondary);">${ex.sets} x ${ex.reps}</div>
-                    <div><input type="text" id="log-w-${idx}" value="${ex.logLoad || ''}" placeholder="e.g. ${ex.targetLoad}"></div>
+                    <div style="color:var(--text-secondary); font-size: 0.95rem;">${displayTarget}</div>
+                    <div style="color:var(--text-secondary); font-size: 0.95rem;">${ex.sets} x ${ex.reps}</div>
+                    <div><input type="text" id="log-w-${idx}" value="${ex.logLoad || ''}" placeholder="e.g. ${ex.targetLoad || 'BW'}"></div>
                     <div><input type="text" id="log-r-${idx}" value="${ex.logReps || ''}" placeholder="e.g. ${ex.reps}"></div>
                 `;
                 list.appendChild(row);
             });
         } else {
-            list.innerHTML = `<p style="color:var(--text-secondary); font-style:italic;">No direct prescription structural movements logged for this session. Complete conditioning schema below.</p>`;
+            list.innerHTML = `<p style="color:var(--text-secondary); font-style:italic;">No prescribed structural patterns scheduled for this session block. Log metabolic conditioning profiles below.</p>`;
         }
     }
 
@@ -352,10 +359,9 @@
         });
 
         saveToLocalStorage();
-        alert("Session parameters logged successfully to database.");
+        alert("Session parameters committed to database state execution.");
     }
 
-    // Tab Navigator
     function switchTab(tab) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.getElementById(`tab-${tab}`).classList.add('active');
@@ -369,39 +375,38 @@
         }
     }
 
-    // Progressive Overload Engine Logic
+    // Algorithmic Progressive Overload Mapping Core
     function generateNextBlockDraft() {
         draftManifest = [];
-        const baseWeek = appState.endWeek; // Week 4 baseline assessment
-        const weekData = appState.program[baseWeek];
-
-        // Collect all performance data points grouped by exercise name across the block
         let movementSummary = {};
 
-        // Track from all past weeks in this current block
+        // Parse logged execution historical entries across the entire active 4-week window
         for (let w = appState.startWeek; w <= appState.endWeek; w++) {
             const currentWeekData = appState.program[w];
+            if (!currentWeekData) continue;
+            
             Object.keys(currentWeekData).forEach(dId => {
                 currentWeekData[dId].exercises.forEach(ex => {
                     if (!movementSummary[ex.name]) {
                         movementSummary[ex.name] = { lastTarget: ex.targetLoad, sets: ex.sets, reps: ex.reps, passedAll: true };
                     }
-                    // Evaluation pass check
+                    
                     const loggedReps = parseInt(ex.logReps);
                     const loggedLoad = parseInt(ex.logLoad);
-                    
-                    // If target wasn't entered or was lower than expected, flag failed progression for automated increase
+                    const masterConfig = appState.exercisesMaster[ex.name] || {};
+
+                    // Fail validation parsing flags
                     if (isNaN(loggedReps) || loggedReps < ex.reps) {
                         movementSummary[ex.name].passedAll = false;
                     }
-                    if (!appState.exercisesMaster[ex.name]?.safetyLock && (isNaN(loggedLoad) || loggedLoad < ex.targetLoad)) {
+                    if (!masterConfig.safetyLock && (isNaN(loggedLoad) || loggedLoad < ex.targetLoad)) {
                         movementSummary[ex.name].passedAll = false;
                     }
                 });
             });
         }
 
-        // Run optimization calculations
+        // Apply progressive overload progression math mechanics
         Object.keys(movementSummary).forEach(name => {
             const summary = movementSummary[name];
             const config = appState.exercisesMaster[name] || { type: "accessory", loadType: "weight", increment: 5, safetyLock: false };
@@ -412,25 +417,25 @@
             let statusNote = "";
 
             if (config.safetyLock) {
-                statusNote = "Locked Base Structure (Safety Hold)";
+                statusNote = "Structural Stability Constraint: Lock Base Loading";
                 nextLoad = 0;
             } else if (summary.passedAll) {
                 if (config.type === "compound") {
                     nextLoad = summary.lastTarget + config.increment;
-                    statusNote = `Overload Triggered: Added +${config.increment} lbs`;
+                    statusNote = `Threshold Cleared: Increment Intensity +${config.increment} lbs`;
                 } else {
-                    // Accessories increase reps or load dynamically
+                    // Accessories step up reps, recycling threshold weight at 12 reps
                     nextReps = summary.reps + 2;
                     if (nextReps > 12) {
                         nextReps = 8;
                         nextLoad = summary.lastTarget + config.increment;
-                        statusNote = `Volume Reset: Load Scaled Up +${config.increment} lbs`;
+                        statusNote = `Volume Target Maxed: Cycle Density Up +${config.increment} lbs`;
                     } else {
-                        statusNote = `Volume Triggered: Rep Profile Incremented`;
+                        statusNote = `Threshold Cleared: Increment Volume Denominator`;
                     }
                 }
             } else {
-                statusNote = "Performance Threshold Unmet: Maintain Prior Base Load";
+                statusNote = "Performance Threshold Unmet: Retain Base Parameters";
             }
 
             draftManifest.push({
@@ -452,15 +457,21 @@
         const tbody = document.getElementById('manifest-rows');
         tbody.innerHTML = '';
 
+        if (draftManifest.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">No historical structural exercise parameters tracked in active schedule window.</td></tr>`;
+            container.style.display = 'block';
+            return;
+        }
+
         draftManifest.forEach((item, idx) => {
             const row = document.createElement('tr');
             const displayTarget = item.safetyLock ? 'BW' : `${item.newLoad} lbs`;
             row.innerHTML = `
-                <td><strong>${item.name}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${item.note}</span></td>
-                <td style="color:var(--text-secondary);">${item.oldProfile}</td>
-                <td><strong>${item.newSets}x${item.newReps} @ ${displayTarget}</strong></td>
+                <td><strong>${item.name}</strong><br><span style="font-size:0.75rem; color:var(--accent);">${item.note}</span></td>
+                <td style="color:var(--text-secondary); font-size:0.95rem;">${item.oldProfile}</td>
+                <td><strong style="color:#fff;">${item.newSets}x${item.newReps} @ ${displayTarget}</strong></td>
                 <td>
-                    <input type="number" id="tweak-load-${idx}" value="${item.newLoad}" ${item.safetyLock ? 'disabled' : ''} style="width:80px;" placeholder="Lbs">
+                    <input type="number" id="tweak-load-${idx}" value="${item.newLoad}" ${item.safetyLock ? 'disabled' : ''} style="width:100px;" placeholder="Lbs">
                 </td>
             `;
             tbody.appendChild(row);
@@ -470,7 +481,6 @@
     }
 
     function commitDraftBlock() {
-        // Pull overrides from interface manifest table layout
         draftManifest.forEach((item, idx) => {
             if (!item.safetyLock) {
                 const val = parseInt(document.getElementById(`tweak-load-${idx}`).value);
@@ -478,18 +488,14 @@
             }
         });
 
-        // Advance system calendar limits
         const nextBlockNum = appState.currentBlock + 1;
         const nextStartWeek = appState.endWeek + 1;
         const nextEndWeek = appState.endWeek + 4;
-
         let nextProgramChunk = {};
 
         for (let w = nextStartWeek; w <= nextEndWeek; w++) {
             nextProgramChunk[w] = {};
-            // Pull template alignment mapping parameters from current terminal setup day profile array references
             templateDays.forEach(baseDay => {
-                // Find matching prescription to port configuration mechanics safely
                 const updatedExercises = baseDay.ex.map(origEx => {
                     const calculatedMatch = draftManifest.find(m => m.name === origEx.name);
                     return {
@@ -506,22 +512,20 @@
                     name: baseDay.name,
                     focus: baseDay.focus,
                     exercises: updatedExercises,
-                    notes: baseDay.id === "d3" ? "Targeting 45 mins steady-state aerobic conditioning." : ""
+                    notes: baseDay.id === "d3" ? "Targeting 45 mins steady-state aerobic conditioning profile." : (baseDay.id === "d6" ? "Aerobic running matrix splits or structural multi-terrain engine tasking." : "")
                 };
             });
         }
 
-        // Write directly to local storage state database fields
         appState.currentBlock = nextBlockNum;
         appState.startWeek = nextStartWeek;
         appState.endWeek = nextEndWeek;
         appState.activeWeek = nextStartWeek;
         appState.activeDayId = "d1";
         
-        // Append operational object block segments to global framework map profiles safely
         Object.assign(appState.program, nextProgramChunk);
-        
         saveToLocalStorage();
+        
         document.getElementById('draft-card').style.display = 'none';
         switchTab('tracker');
         initDatabase();
@@ -529,19 +533,19 @@
     }
 
     function resetToBaseline() {
-        if (confirm("Reset tracking history and restore to Weeks 1-4 baseline template layout?")) {
+        if (confirm("Reset active tracking logs and restore initial baseline matrix configurations?")) {
             localStorage.removeItem('hybrid_engine_data');
             initDatabase();
             switchTab('tracker');
         }
     }
 
-    // Backup Engine Controls
+    // Local Storage Binary Export Infrastructure
     function exportBackup() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
         const dlAnchorElem = document.createElement('a');
         dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", `hybrid_training_block_${appState.currentBlock}_backup.json`);
+        dlAnchorElem.setAttribute("download", `hybrid_engine_block_${appState.currentBlock}_backup.json`);
         dlAnchorElem.click();
     }
 
@@ -554,18 +558,17 @@
                     appState = parsed;
                     saveToLocalStorage();
                     initDatabase();
-                    alert("Database state recovered successfully.");
+                    alert("System state configuration restored successfully from file.");
                 } else {
-                    alert("Invalid structure manifest. Upload rejected.");
+                    alert("Structural error: Invalid file template profile configuration properties.");
                 }
             } catch (err) {
-                alert("File parse execution error.");
+                alert("Execution crash during source manifest decompression phase.");
             }
         };
         fileReader.readAsText(event.target.files[0]);
     }
 
-    // Boot Core Hook
     window.onload = initDatabase;
 </script>
 
