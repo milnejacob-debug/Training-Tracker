@@ -294,7 +294,6 @@
         );
       }
 
-      // ... [The rest of the script logic functions remain exact] ...
       function ConditioningCard({ day, condData, onUpdateCond }) {
         const isWed = day.id === "wed";
         return (
@@ -323,6 +322,7 @@
         );
       }
 
+      // ─── VIEWS ─────────────────────────────────────────────────────────────────────
       function HomeScreen({ currentWeek, setCurrentWeek, completedDays, onSelectDay }) {
         return (
           <div className="jt-screen">
@@ -455,6 +455,7 @@
         );
       }
 
+      // ─── MAIN APP SYSTEM ────────────────────────────────────────────────────────────
       function App() {
         const [tab, setTab] = useState("home");
         const [currentWeek, setCurrentWeek] = useState(() => storage.get("jt_current_week") || 1);
@@ -536,6 +537,10 @@
           setSessionRehab(prev => ({ ...prev, [name]: !prev[name] }));
         }, []);
 
+        const handleUpdateCond = useCallback((field, val) => {
+          setCondData(prev => ({ ...prev, [field]: val }));
+        }, []);
+
         const handleSave = useCallback(() => {
           const now = new Date();
           const dateStr = now.toISOString().split("T")[0];
@@ -579,4 +584,3 @@
     </script>
   </body>
 </html>
-
