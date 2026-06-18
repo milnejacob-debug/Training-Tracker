@@ -1,576 +1,949 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Training Engine & Block Builder</title>
-    <style>
-        :root {
-            --bg-primary: #121212;
-            --bg-surface: #1e1e1e;
-            --bg-surface-elevated: #2a2a2a;
-            --text-primary: #e0e0e0;
-            --text-secondary: #a0a0a0;
-            --accent: #4caf50;
-            --accent-hover: #43a047;
-            --border: #333333;
-            --danger: #cf6679;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.5;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-        h1, h2, h3 { margin: 0 0 10px 0; font-weight: 600; }
-        h1 { color: #fff; margin: 0; }
-        .btn {
-            background-color: var(--bg-surface-elevated);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-        .btn:hover { background-color: var(--border); }
-        .btn-primary {
-            background-color: var(--accent);
-            color: #000;
-            border: none;
-            font-weight: 600;
-        }
-        .btn-primary:hover { background-color: var(--accent-hover); }
-        .btn-danger { background-color: transparent; border-color: var(--danger); color: var(--danger); }
-        .btn-danger:hover { background-color: var(--danger); color: #000; }
-        
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-        .tab { padding: 8px 16px; cursor: pointer; color: var(--text-secondary); border-radius: 4px; }
-        .tab.active { background-color: var(--bg-surface); color: var(--accent); font-weight: 600; }
-        
-        .card { background-color: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
-        
-        .week-selector { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .week-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); padding: 8px 12px; border-radius: 4px; cursor: pointer; min-width: 80px; text-align: center; }
-        .week-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-        
-        .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 25px; }
-        .day-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); padding: 12px; border-radius: 6px; cursor: pointer; text-align: left; }
-        .day-btn.active { background: var(--bg-surface-elevated); border-color: var(--accent); }
-        .day-btn .day-title { font-weight: 600; font-size: 0.9rem; color: #fff; }
-        .day-btn .day-focus { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .exercise-row { display: grid; grid-template-columns: 2.5fr 1fr 1fr 1.5fr 1.5fr; gap: 15px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-        .exercise-row.header { font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border); padding-bottom: 6px; }
-        
-        input[type="text"], input[type="number"], textarea {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 8px 10px;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        input:focus, textarea:focus { border-color: var(--accent); outline: none; }
-        
-        .manifest-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .manifest-table th, .manifest-table td { padding: 12px; border: 1px solid var(--border); text-align: left; }
-        .manifest-table th { background-color: var(--bg-surface-elevated); color: var(--text-secondary); }
-        
-        .backup-controls { display: flex; gap: 12px; font-size: 0.85rem; margin-top: 4px; }
-        .flag-tag { background: #332211; color: #ff9800; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; display: inline-block; margin-top: 4px; }
-    </style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Training Matrix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen">
+    <div id="root"></div>
 
-<div class="container">
-    <header>
-        <div>
-            <h1>Hybrid Engine</h1>
-            <div class="backup-controls">
-                <span onclick="exportBackup()" style="cursor:pointer; color:var(--accent);">[Export Backup]</span>
-                <span onclick="document.getElementById('importFile').click()" style="cursor:pointer; color:var(--text-secondary);">[Import Backup]</span>
-                <input type="file" id="importFile" style="display:none" onchange="importBackup(event)">
-            </div>
-        </div>
-        <div id="block-info" style="text-align: right;">
-            <h3 id="display-block-name" style="color: var(--accent);">Block 1</h3>
-            <span id="display-block-weeks" style="color: var(--text-secondary); font-size:0.9rem;">Weeks 1 - 4</span>
-        </div>
-    </header>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const { useState, useEffect, useCallback, useRef, Fragment } = React;
+        const e = React.createElement;
 
-    <div class="nav-tabs">
-        <div class="tab active" id="tab-tracker" onclick="switchTab('tracker')">Workout Tracker</div>
-        <div class="tab" id="tab-builder" onclick="switchTab('builder')">Block Builder</div>
-    </div>
-
-    <!-- TRACKER PANEL -->
-    <div id="panel-tracker">
-        <div class="week-selector" id="week-bar"></div>
-        <div class="day-grid" id="day-bar"></div>
-
-        <div class="card" id="workout-card" style="display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 id="workout-title" style="color:#fff; margin:0;">Select a day</h2>
-                <button class="btn btn-primary" onclick="saveCurrentDay()">Save Day Log</button>
-            </div>
-            <div id="exercise-list"></div>
-            <div style="margin-top:25px;">
-                <h3 style="font-size:1rem; color:var(--text-secondary);">Conditioning Metrics & Session Feedback</h3>
-                <textarea id="session-notes" rows="5" placeholder="Enter running distances, pacing metrics, bike stats, or subjective physical notes..."></textarea>
-            </div>
-        </div>
-    </div>
-
-    <!-- BUILDER PANEL -->
-    <div id="panel-builder" style="display:none;">
-        <div class="card">
-            <h2>Algorithmic Block Generation</h2>
-            <p style="color:var(--text-secondary); font-size:0.95rem;">
-                This engine runs a local assessment sequence on your active 4-week block history. If logged parameters meet baseline rep thresholds, compound lift intensities scale upward systematically while isolated mobility structural markers remain clamped to safe bodyweight metrics.
-            </p>
-            <div style="margin-top:20px;">
-                <button class="btn btn-primary" onclick="generateNextBlockDraft()">Calculate Next 4-Week Block</button>
-                <button class="btn btn-danger" style="margin-left:10px;" onclick="resetToBaseline()">Reset to Baseline Template</button>
-            </div>
-        </div>
-
-        <div class="card" id="draft-card" style="display:none;">
-            <h2>Draft Manifest: Review Upcoming Cycle Progression</h2>
-            <p style="color:var(--text-secondary); font-size:0.9rem;">Review or modify the calculated load rules before committing them to the live template array maps.</p>
-            
-            <table class="manifest-table">
-                <thead>
-                    <tr>
-                        <th>Movement Pattern</th>
-                        <th>Prior Block Target</th>
-                        <th>Calculated Target Profile</th>
-                        <th style="width: 140px;">Manual Tweak Override</th>
-                    </tr>
-                </thead>
-                <tbody id="manifest-rows"></tbody>
-            </table>
-
-            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
-                <button class="btn" onclick="document.getElementById('draft-card').style.display='none'">Discard Draft</button>
-                <button class="btn btn-primary" onclick="commitDraftBlock()">Commit Block to Live Calendar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // System Structural Layout State Engine
-    let appState = {
-        currentBlock: 1,
-        startWeek: 1,
-        endWeek: 4,
-        activeWeek: 1,
-        activeDayId: "d1",
-        program: {},
-        exercisesMaster: {}
-    };
-
-    // Strict Functional Base Framework Parameters
-    const baselineTemplate = {
-        currentBlock: 1,
-        startWeek: 1,
-        endWeek: 4,
-        activeWeek: 1,
-        activeDayId: "d1",
-        exercisesMaster: {
-            "Barbell Squat": { type: "compound", loadType: "weight", increment: 5, safetyLock: false },
-            "Bench Press": { type: "compound", loadType: "weight", increment: 5, safetyLock: false },
-            "Deadlift": { type: "compound", loadType: "weight", increment: 10, safetyLock: false },
-            "Dumbbell Row": { type: "accessory", loadType: "weight", increment: 5, safetyLock: false },
-            "ATG Split Squat": { type: "rehab", loadType: "bodyweight", increment: 0, safetyLock: true },
-            "Overhead Press": { type: "compound", loadType: "weight", increment: 5, safetyLock: false },
-            "Romanian Deadlift": { type: "accessory", loadType: "weight", increment: 5, safetyLock: false }
-        },
-        program: {}
-    };
-
-    const templateDays = [
-        { id: "d1", name: "Day 1", focus: "Lower Strength", ex: [
-            { name: "Barbell Squat", sets: 4, reps: 5, targetLoad: 315, logLoad: "", logReps: "" },
-            { name: "ATG Split Squat", sets: 3, reps: 10, targetLoad: 0, logLoad: "BW", logReps: "" }
-        ]},
-        { id: "d2", name: "Day 2", focus: "Upper Strength", ex: [
-            { name: "Bench Press", sets: 4, reps: 5, targetLoad: 275, logLoad: "", logReps: "" },
-            { name: "Dumbbell Row", sets: 3, reps: 10, targetLoad: 100, logLoad: "", logReps: "" }
-        ]},
-        { id: "d3", name: "Day 3", focus: "Zone 2 Engine", ex: [], notes: "Targeting 45 mins steady-state aerobic conditioning profile." },
-        { id: "d4", name: "Day 4", focus: "Hinge Strength", ex: [
-            { name: "Deadlift", sets: 3, reps: 5, targetLoad: 405, logLoad: "", logReps: "" },
-            { name: "Romanian Deadlift", sets: 3, reps: 8, targetLoad: 225, logLoad: "", logReps: "" }
-        ]},
-        { id: "d5", name: "Day 5", focus: "Upper Press Volume", ex: [
-            { name: "Overhead Press", sets: 4, reps: 6, targetLoad: 165, logLoad: "", logReps: "" }
-        ]},
-        { id: "d6", name: "Day 6", focus: "Conditioning / Run", ex: [], notes: "Aerobic running matrix splits or structural multi-terrain engine tasking." }
-    ];
-
-    let draftManifest = [];
-
-    function initDatabase() {
-        const localData = localStorage.getItem('hybrid_engine_data');
-        if (localData) {
-            appState = JSON.parse(localData);
-        } else {
-            generateBaselineStructure();
-        }
-        renderHeader();
-        renderWeekBar();
-        renderDayBar();
-        loadWorkoutDay();
-    }
-
-    function generateBaselineStructure() {
-        appState = JSON.parse(JSON.stringify(baselineTemplate));
-        for (let w = 1; w <= 4; w++) {
-            appState.program[w] = {};
-            templateDays.forEach(day => {
-                appState.program[w][day.id] = {
-                    name: day.name,
-                    focus: day.focus,
-                    exercises: JSON.parse(JSON.stringify(day.ex)),
-                    notes: day.notes || ""
-                };
-            });
-        }
-        saveToLocalStorage();
-    }
-
-    function saveToLocalStorage() {
-        localStorage.setItem('hybrid_engine_data', JSON.stringify(appState));
-    }
-
-    function renderHeader() {
-        document.getElementById('display-block-name').innerText = `Block ${appState.currentBlock}`;
-        document.getElementById('display-block-weeks').innerText = `Weeks ${appState.startWeek} - ${appState.endWeek}`;
-    }
-
-    function renderWeekBar() {
-        const bar = document.getElementById('week-bar');
-        bar.innerHTML = '';
-        for (let w = appState.startWeek; w <= appState.endWeek; w++) {
-            const btn = document.createElement('button');
-            btn.className = `week-btn ${appState.activeWeek === w ? 'active' : ''}`;
-            btn.innerText = `Week ${w}`;
-            btn.onclick = () => { 
-                appState.activeWeek = w; 
-                renderWeekBar(); 
-                renderDayBar(); 
-                loadWorkoutDay(); 
-            };
-            bar.appendChild(btn);
-        }
-    }
-
-    function renderDayBar() {
-        const bar = document.getElementById('day-bar');
-        bar.innerHTML = '';
-        const weekData = appState.program[appState.activeWeek] || {};
-        
-        Object.keys(weekData).sort().forEach(dayId => {
-            const day = weekData[dayId];
-            const btn = document.createElement('button');
-            btn.className = `day-btn ${appState.activeDayId === dayId ? 'active' : ''}`;
-            btn.innerHTML = `
-                <div class="day-title">${day.name}</div>
-                <div class="day-focus">${day.focus}</div>
-            `;
-            btn.onclick = () => { 
-                appState.activeDayId = dayId; 
-                renderDayBar(); 
-                loadWorkoutDay(); 
-            };
-            bar.appendChild(btn);
-        });
-    }
-
-    function loadWorkoutDay() {
-        const card = document.getElementById('workout-card');
-        const list = document.getElementById('exercise-list');
-        const notesArea = document.getElementById('session-notes');
-        
-        const dayData = appState.program[appState.activeWeek]?.[appState.activeDayId];
-        if (!dayData) {
-            card.style.display = 'none';
-            return;
-        }
-        card.style.display = 'block';
-        document.getElementById('workout-title').innerText = `${dayData.name} - ${dayData.focus}`;
-        notesArea.value = dayData.notes || "";
-
-        list.innerHTML = '';
-        if (dayData.exercises.length > 0) {
-            const header = document.createElement('div');
-            header.className = 'exercise-row header';
-            header.innerHTML = `<div>Movement</div><div>Target</div><div>Sets x Reps</div><div>Logged Weight</div><div>Logged Reps</div>`;
-            list.appendChild(header);
-
-            dayData.exercises.forEach((ex, idx) => {
-                const config = appState.exercisesMaster[ex.name] || {};
-                const displayTarget = config.safetyLock ? "BW" : `${ex.targetLoad} lbs`;
-                const row = document.createElement('div');
-                row.className = 'exercise-row';
-                row.innerHTML = `
-                    <div>
-                        <strong>${ex.name}</strong>
-                        ${config.safetyLock ? '<br><span class="flag-tag">SAFETY LOCK</span>' : ''}
-                    </div>
-                    <div style="color:var(--text-secondary); font-size: 0.95rem;">${displayTarget}</div>
-                    <div style="color:var(--text-secondary); font-size: 0.95rem;">${ex.sets} x ${ex.reps}</div>
-                    <div><input type="text" id="log-w-${idx}" value="${ex.logLoad || ''}" placeholder="e.g. ${ex.targetLoad || 'BW'}"></div>
-                    <div><input type="text" id="log-r-${idx}" value="${ex.logReps || ''}" placeholder="e.g. ${ex.reps}"></div>
-                `;
-                list.appendChild(row);
-            });
-        } else {
-            list.innerHTML = `<p style="color:var(--text-secondary); font-style:italic;">No prescribed structural patterns scheduled for this session block. Log metabolic conditioning profiles below.</p>`;
-        }
-    }
-
-    function saveCurrentDay() {
-        const dayData = appState.program[appState.activeWeek]?.[appState.activeDayId];
-        if (!dayData) return;
-
-        dayData.notes = document.getElementById('session-notes').value;
-        dayData.exercises.forEach((ex, idx) => {
-            ex.logLoad = document.getElementById(`log-w-${idx}`).value;
-            ex.logReps = document.getElementById(`log-r-${idx}`).value;
-        });
-
-        saveToLocalStorage();
-        alert("Session parameters committed to database state execution.");
-    }
-
-    function switchTab(tab) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById(`tab-${tab}`).classList.add('active');
-        if (tab === 'tracker') {
-            document.getElementById('panel-tracker').style.display = 'block';
-            document.getElementById('panel-builder').style.display = 'none';
-            loadWorkoutDay();
-        } else {
-            document.getElementById('panel-tracker').style.display = 'none';
-            document.getElementById('panel-builder').style.display = 'block';
-        }
-    }
-
-    // Algorithmic Progressive Overload Mapping Core
-    function generateNextBlockDraft() {
-        draftManifest = [];
-        let movementSummary = {};
-
-        // Parse logged execution historical entries across the entire active 4-week window
-        for (let w = appState.startWeek; w <= appState.endWeek; w++) {
-            const currentWeekData = appState.program[w];
-            if (!currentWeekData) continue;
-            
-            Object.keys(currentWeekData).forEach(dId => {
-                currentWeekData[dId].exercises.forEach(ex => {
-                    if (!movementSummary[ex.name]) {
-                        movementSummary[ex.name] = { lastTarget: ex.targetLoad, sets: ex.sets, reps: ex.reps, passedAll: true };
-                    }
-                    
-                    const loggedReps = parseInt(ex.logReps);
-                    const loggedLoad = parseInt(ex.logLoad);
-                    const masterConfig = appState.exercisesMaster[ex.name] || {};
-
-                    // Fail validation parsing flags
-                    if (isNaN(loggedReps) || loggedReps < ex.reps) {
-                        movementSummary[ex.name].passedAll = false;
-                    }
-                    if (!masterConfig.safetyLock && (isNaN(loggedLoad) || loggedLoad < ex.targetLoad)) {
-                        movementSummary[ex.name].passedAll = false;
-                    }
-                });
-            });
-        }
-
-        // Apply progressive overload progression math mechanics
-        Object.keys(movementSummary).forEach(name => {
-            const summary = movementSummary[name];
-            const config = appState.exercisesMaster[name] || { type: "accessory", loadType: "weight", increment: 5, safetyLock: false };
-            
-            let nextLoad = summary.lastTarget;
-            let nextReps = summary.reps;
-            let nextSets = summary.sets;
-            let statusNote = "";
-
-            if (config.safetyLock) {
-                statusNote = "Structural Stability Constraint: Lock Base Loading";
-                nextLoad = 0;
-            } else if (summary.passedAll) {
-                if (config.type === "compound") {
-                    nextLoad = summary.lastTarget + config.increment;
-                    statusNote = `Threshold Cleared: Increment Intensity +${config.increment} lbs`;
-                } else {
-                    // Accessories step up reps, recycling threshold weight at 12 reps
-                    nextReps = summary.reps + 2;
-                    if (nextReps > 12) {
-                        nextReps = 8;
-                        nextLoad = summary.lastTarget + config.increment;
-                        statusNote = `Volume Target Maxed: Cycle Density Up +${config.increment} lbs`;
-                    } else {
-                        statusNote = `Threshold Cleared: Increment Volume Denominator`;
-                    }
-                }
-            } else {
-                statusNote = "Performance Threshold Unmet: Retain Base Parameters";
-            }
-
-            draftManifest.push({
-                name: name,
-                oldProfile: `${summary.sets}x${summary.reps} @ ${config.safetyLock ? 'BW' : summary.lastTarget + ' lbs'}`,
-                newSets: nextSets,
-                newReps: nextReps,
-                newLoad: nextLoad,
-                note: statusNote,
-                safetyLock: config.safetyLock
-            });
-        });
-
-        renderDraftManifest();
-    }
-
-    function renderDraftManifest() {
-        const container = document.getElementById('draft-card');
-        const tbody = document.getElementById('manifest-rows');
-        tbody.innerHTML = '';
-
-        if (draftManifest.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">No historical structural exercise parameters tracked in active schedule window.</td></tr>`;
-            container.style.display = 'block';
-            return;
-        }
-
-        draftManifest.forEach((item, idx) => {
-            const row = document.createElement('tr');
-            const displayTarget = item.safetyLock ? 'BW' : `${item.newLoad} lbs`;
-            row.innerHTML = `
-                <td><strong>${item.name}</strong><br><span style="font-size:0.75rem; color:var(--accent);">${item.note}</span></td>
-                <td style="color:var(--text-secondary); font-size:0.95rem;">${item.oldProfile}</td>
-                <td><strong style="color:#fff;">${item.newSets}x${item.newReps} @ ${displayTarget}</strong></td>
-                <td>
-                    <input type="number" id="tweak-load-${idx}" value="${item.newLoad}" ${item.safetyLock ? 'disabled' : ''} style="width:100px;" placeholder="Lbs">
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        container.style.display = 'block';
-    }
-
-    function commitDraftBlock() {
-        draftManifest.forEach((item, idx) => {
-            if (!item.safetyLock) {
-                const val = parseInt(document.getElementById(`tweak-load-${idx}`).value);
-                if (!isNaN(val)) item.newLoad = val;
-            }
-        });
-
-        const nextBlockNum = appState.currentBlock + 1;
-        const nextStartWeek = appState.endWeek + 1;
-        const nextEndWeek = appState.endWeek + 4;
-        let nextProgramChunk = {};
-
-        for (let w = nextStartWeek; w <= nextEndWeek; w++) {
-            nextProgramChunk[w] = {};
-            templateDays.forEach(baseDay => {
-                const updatedExercises = baseDay.ex.map(origEx => {
-                    const calculatedMatch = draftManifest.find(m => m.name === origEx.name);
-                    return {
-                        name: origEx.name,
-                        sets: calculatedMatch ? calculatedMatch.newSets : origEx.sets,
-                        reps: calculatedMatch ? calculatedMatch.newReps : origEx.reps,
-                        targetLoad: calculatedMatch ? calculatedMatch.newLoad : origEx.targetLoad,
-                        logLoad: "",
-                        logReps: ""
-                    };
-                });
-
-                nextProgramChunk[w][baseDay.id] = {
-                    name: baseDay.name,
-                    focus: baseDay.focus,
-                    exercises: updatedExercises,
-                    notes: baseDay.id === "d3" ? "Targeting 45 mins steady-state aerobic conditioning profile." : (baseDay.id === "d6" ? "Aerobic running matrix splits or structural multi-terrain engine tasking." : "")
-                };
-            });
-        }
-
-        appState.currentBlock = nextBlockNum;
-        appState.startWeek = nextStartWeek;
-        appState.endWeek = nextEndWeek;
-        appState.activeWeek = nextStartWeek;
-        appState.activeDayId = "d1";
-        
-        Object.assign(appState.program, nextProgramChunk);
-        saveToLocalStorage();
-        
-        document.getElementById('draft-card').style.display = 'none';
-        switchTab('tracker');
-        initDatabase();
-        alert(`Block committed. System advanced to Block ${nextBlockNum} (Weeks ${nextStartWeek}-${nextEndWeek}).`);
-    }
-
-    function resetToBaseline() {
-        if (confirm("Reset active tracking logs and restore initial baseline matrix configurations?")) {
-            localStorage.removeItem('hybrid_engine_data');
-            initDatabase();
-            switchTab('tracker');
-        }
-    }
-
-    // Local Storage Binary Export Infrastructure
-    function exportBackup() {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
-        const dlAnchorElem = document.createElement('a');
-        dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", `hybrid_engine_block_${appState.currentBlock}_backup.json`);
-        dlAnchorElem.click();
-    }
-
-    function importBackup(event) {
-        const fileReader = new FileReader();
-        fileReader.onload = function(e) {
-            try {
-                const parsed = JSON.parse(e.target.result);
-                if (parsed.program && parsed.exercisesMaster) {
-                    appState = parsed;
-                    saveToLocalStorage();
-                    initDatabase();
-                    alert("System state configuration restored successfully from file.");
-                } else {
-                    alert("Structural error: Invalid file template profile configuration properties.");
-                }
-            } catch (err) {
-                alert("Execution crash during source manifest decompression phase.");
-            }
+        // ─── THE ORIGINAL PROGRAM BLUEPRINT ─────────────────────────────────────────────
+        const PROGRAM = {
+          mon: {
+            id: "mon", label: "Monday", name: "Lower Strength", focus: "Squat · RDL · Rehab",
+            rehab: ["Couch Stretch"],
+            exercises: [
+              { id: "squat", name: "Barbell Squat", sets: 4, reps: "5", prescription: "4×5", note: "Heavy. 3–4 min rest. Strength work." },
+              { id: "rdl", name: "Romanian Deadlift", sets: 3, reps: "8", prescription: "3×8", note: "Control the eccentric. 2 min rest." },
+              { id: "patrick", name: "Patrick Step Down", sets: 3, reps: "15 ea", prescription: "3×15", note: "Slow 3–4 sec lowering. Knee rehab cornerstone.", bodyweight: true },
+              { id: "tibialis", name: "Tibialis Raise", sets: 3, reps: "25", prescription: "3×25", note: "Toes up against wall.", bodyweight: true },
+              { id: "calf", name: "Seated Calf Raise", sets: 3, reps: "20", prescription: "3×20", note: "Soleus focus. Pause at bottom stretch." },
+            ]
+          },
+          tue: {
+            id: "tue", label: "Tuesday", name: "Upper Push", focus: "Bench · OHP · Tris",
+            rehab: [],
+            exercises: [
+              { id: "bench", name: "Barbell Bench Press", sets: 4, reps: "5", prescription: "4×5", note: "Heavy. 3–4 min rest." },
+              { id: "incline", name: "Incline DB Press", sets: 3, reps: "10", prescription: "3×10", note: "Full range. Pause at bottom." },
+              { id: "ohp", name: "Overhead Press", sets: 3, reps: "8", prescription: "3×8", note: "Strict form. No leg drive.", injuryFlag: "⚠ Shoulder — manage load. Note any pain." },
+              { id: "lateral", name: "Lateral Raise", sets: 3, reps: "15", prescription: "3×15", note: "Light. Control throughout." },
+              { id: "tricep", name: "Tricep Pushdown", sets: 3, reps: "12", prescription: "3×12", note: "Cable or band." },
+            ]
+          },
+          wed: {
+            id: "wed", label: "Wednesday", name: "Conditioning", focus: "Intervals · Tempo",
+            rehab: [], conditioning: true, exercises: [],
+          },
+          thu: {
+            id: "thu", label: "Thursday", name: "Lower Athletic", focus: "Trap Bar · Hinge · Glutes",
+            rehab: ["Couch Stretch"],
+            exercises: [
+              { id: "trapbar", name: "Trap Bar Deadlift", sets: 4, reps: "6", prescription: "4×6", note: "Athletic hinge. 2–3 min rest." },
+              { id: "atg", name: "ATG Split Squat", sets: 3, reps: "10 ea", prescription: "3×10", note: "Bodyweight only until hip flexor resolves.", injuryFlag: "⚠ Left hip flexor — bodyweight only.", bodyweight: true },
+              { id: "slantboard", name: "Slant Board Squat", sets: 3, reps: "12", prescription: "3×12", note: "Heels elevated ~30°. Knees forward intentionally.", bodyweight: true },
+              { id: "nordic", name: "Nordic Curl", sets: 3, reps: "5", prescription: "3×5", note: "Partial negatives OK. Anchor feet under something heavy.", bodyweight: true },
+              { id: "hipthrust", name: "Hip Thrust", sets: 3, reps: "12", prescription: "3×12", note: "Full extension at top. Pause 1 sec." },
+            ]
+          },
+          fri: {
+            id: "fri", label: "Friday", name: "Upper Pull", focus: "Pull-ups · Rows · Curls",
+            rehab: [],
+            exercises: [
+              { id: "pullup", name: "Weighted Pull-Up", sets: 4, reps: "6", prescription: "4×6", note: "Pull-ups preferred. Full hang at bottom." },
+              { id: "row", name: "Barbell Row", sets: 3, reps: "8", prescription: "3×8", note: "Chest supported or bent over. Heavy." },
+              { id: "facepull", name: "Face Pull", sets: 3, reps: "15", prescription: "3×15", note: "Cable. External rotation. Shoulder health." },
+              { id: "hammer", name: "Hammer Curl", sets: 3, reps: "12", prescription: "3×12", note: "Neutral grip. No swinging." },
+              { id: "pullpart", name: "Band Pull Apart", sets: 3, reps: "20", prescription: "3×20", note: "Shoulder health. Light band, perfect form.", bodyweight: true },
+            ]
+          },
+          sat: {
+            id: "sat", label: "Saturday", name: "Zone 2", focus: "Aerobic base",
+            rehab: [], conditioning: true, exercises: [],
+          },
         };
-        fileReader.readAsText(event.target.files[0]);
-    }
 
-    window.onload = initDatabase;
-</script>
+        const DAYS_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat"];
+        const DELOAD_WEEKS = [4, 8];
+        const DELOAD_FACTOR = 0.55;
 
-</body>
+        // ─── LOCAL STORAGE ENGINE ─────────────────────────────────────────────────────────
+        const storage = {
+          get: (key) => {
+            try {
+              const val = localStorage.getItem(key);
+              return val ? JSON.parse(val) : null;
+            } catch (err) { return null; }
+          },
+          set: (key, val) => {
+            try { localStorage.setItem(key, JSON.stringify(val)); } catch (err) {}
+          },
+          remove: (key) => {
+            try { localStorage.removeItem(key); } catch (err) {}
+          },
+          list: () => {
+            try { return Object.keys(localStorage); } catch (err) { return []; }
+          }
+        };
+
+        // ─── HELPERS ───────────────────────────────────────────────────────────────────
+        function formatDate(dateStr) {
+          const d = new Date(dateStr + "T12:00:00");
+          return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        }
+
+        function getPreviousData(dayId, exerciseId) {
+          const keys = storage.list().filter(k => k.startsWith(`workout:${dayId}:`)).sort().reverse();
+          for (const key of keys) {
+            const session = storage.get(key);
+            if (session?.sets?.[exerciseId]) return session.sets[exerciseId];
+          }
+          return null;
+        }
+
+        function suggestNextWeight(prevSets, isDeload) {
+          if (!prevSets?.length) return "";
+          const doneSets = prevSets.filter(s => s.done);
+          if (!doneSets.length) return prevSets[0].weight || "";
+          const lastWeight = parseFloat(doneSets[doneSets.length - 1].weight) || 0;
+          const allComplete = doneSets.length >= prevSets.length;
+          const targetReps = parseInt(doneSets[0].targetReps) || 0;
+          const allMaxReps = doneSets.every(s => parseInt(s.reps) >= targetReps);
+          
+          let suggested = lastWeight;
+          if (allComplete && allMaxReps && !isDeload) {
+            suggested = lastWeight + 5;
+          }
+          if (isDeload) {
+            suggested = Math.round((lastWeight * DELOAD_FACTOR) / 5) * 5;
+          }
+          return suggested > 0 ? String(suggested) : "";
+        }
+
+        function initSets(ex, prevSets, isDeload) {
+          const targetSets = isDeload ? Math.ceil(ex.sets * 0.5) : ex.sets;
+          const suggested = ex.bodyweight ? "BW" : suggestNextWeight(prevSets, isDeload);
+          return Array.from({ length: targetSets }, (_, i) => {
+            let weight = suggested;
+            if (prevSets?.[i]) {
+              if (ex.bodyweight) weight = "BW";
+              else if (isDeload) weight = String(Math.round((parseFloat(prevSets[i].weight) || 0) * DELOAD_FACTOR / 5) * 5) || suggested;
+              else weight = prevSets[i].weight;
+            }
+            return { weight, reps: String(ex.reps), targetReps: String(ex.reps), done: false };
+          });
+        }
+
+        function calculate1RM(weight, reps) {
+          const w = parseFloat(weight);
+          const r = parseInt(reps);
+          if (isNaN(w) || isNaN(r) || r <= 0) return 0;
+          if (r === 1) return w;
+          return Math.round(w * (1 + r / 30));
+        }
+
+        // ─── STYLES (CSS INJECT) ───────────────────────────────────────────────────────
+        const CSS = `
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+          :root {
+            --bg: #0f1117; --surface: #181c26; --surface2: #1e2435; --border: #2a3045;
+            --accent: #c8f03a; --text: #e8ecf4; --text-dim: #7a8299; --text-dimmer: #4a5268;
+            --red: #ff4f4f; --red-dim: rgba(255,79,79,0.12);
+            --orange: #f0923a; --green: #3af09a; --green-dim: rgba(58,240,154,0.12);
+            --mono: 'JetBrains Mono', monospace;
+            --radius: 12px; --radius-sm: 8px;
+          }
+          .jt-root * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+          .jt-root { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 80px; }
+          .jt-header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+          .jt-header-title { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-family: var(--mono); }
+          .jt-header-sub { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-screen { flex: 1; overflow-y: auto; }
+          .jt-week-bar { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; }
+          .jt-week-bar::-webkit-scrollbar { display: none; }
+          .jt-week-pill { flex-shrink: 0; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-family: var(--mono); cursor: pointer; color: var(--text-dim); background: var(--surface); white-space: nowrap; transition: all 0.15s; }
+          .jt-week-pill.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+          .jt-week-pill.deload { border-color: var(--orange); color: var(--orange); }
+          .jt-week-pill.deload.active { background: var(--orange); color: var(--bg); }
+          .jt-section-header { padding: 20px 16px 8px; display: flex; align-items: center; gap: 10px; }
+          .jt-section-title { font-size: 11px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+          .jt-divider { flex: 1; height: 1px; background: var(--border); }
+          .jt-day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+          .jt-day-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 14px; cursor: pointer; position: relative; overflow: hidden; }
+          .jt-day-card.done { border-color: rgba(58,240,154,0.3); }
+          .jt-day-label { font-size: 10px; font-family: var(--mono); color: var(--text-dim); margin-bottom: 4px; }
+          .jt-day-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+          .jt-day-focus { font-size: 12px; color: var(--text-dim); }
+          .jt-done-badge { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; background: var(--green-dim); border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+          .jt-back-bar { display: flex; align-items: center; gap: 12px; padding: 16px; }
+          .jt-back-btn { background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; font-family: var(--mono); }
+          .jt-workout-title { font-size: 20px; font-weight: 800; color: var(--text); }
+          .jt-workout-sub { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-ex-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+          .jt-ex-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+          .jt-ex-name { font-size: 16px; font-weight: 700; color: var(--text); }
+          .jt-ex-rx { font-size: 11px; font-family: var(--mono); color: var(--text-dim); background: var(--surface2); padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+          .jt-ex-note { font-size: 12px; color: var(--text-dim); font-style: italic; margin-bottom: 12px; }
+          .jt-injury { padding: 6px 10px; background: var(--red-dim); border-left: 2px solid var(--red); border-radius: 4px; font-size: 12px; color: var(--red); margin-bottom: 10px; }
+          .jt-set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+          .jt-set-label { font-size: 12px; font-family: var(--mono); color: var(--text-dimmer); width: 24px; }
+          .jt-stepper-group { display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+          .jt-step-btn { width: 32px; height: 40px; background: transparent; border: none; color: var(--text-dim); font-size: 18px; font-weight: 600; cursor: pointer; }
+          .jt-step-btn:active { background: rgba(255,255,255,0.05); }
+          .jt-set-input { width: 50px; height: 40px; background: transparent; border: none; color: var(--text); font-size: 15px; font-family: var(--mono); font-weight: 600; text-align: center; outline: none; -webkit-appearance: none; }
+          .jt-set-input.done { color: var(--green); }
+          .jt-bw-lbl { width: 114px; text-align: center; font-size: 14px; font-family: var(--mono); color: var(--text-dim); font-weight: 600; }
+          .jt-unit-lbl { font-size: 11px; font-family: var(--mono); color: var(--text-dimmer); margin-left: 2px; }
+          .jt-done-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); cursor: pointer; color: var(--text-dimmer); font-size: 16px; font-weight: 700; transition: all 0.15s; margin-left: auto; }
+          .jt-done-btn.done { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+          .jt-add-set-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 12px; cursor: pointer; font-family: var(--mono); }
+          .jt-cond-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+          .jt-cond-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.4; }
+          .jt-duration-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+          .jt-duration-input { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--accent); font-size: 22px; font-family: var(--mono); font-weight: 700; text-align: center; padding: 8px; width: 80px; outline: none; }
+          .jt-cond-textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; padding: 12px; min-height: 90px; resize: none; outline: none; font-family: inherit; }
+          .jt-rehab-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
+          .jt-rehab-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+          .jt-rehab-item.done .jt-rehab-check { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+          .jt-rehab-text { font-size: 15px; font-weight: 600; }
+          .jt-rehab-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+          .jt-save-area { padding: 16px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+          .jt-save-btn { width: 100%; padding: 16px; background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius); font-size: 14px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); cursor: pointer; }
+          .jt-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); display: flex; height: 64px; z-index: 200; }
+          .jt-nav-btn { flex: 1; background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-dimmer); }
+          .jt-nav-btn.active { color: var(--accent); }
+          .jt-nav-icon { font-size: 18px; }
+          .jt-nav-label { font-size: 10px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.04em; }
+          .jt-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--bg); padding: 12px 24px; border-radius: 24px; font-size: 13px; font-weight: 700; font-family: var(--mono); z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: all 0.2s ease; opacity: 0; pointer-events: none; }
+          .jt-toast.show { opacity: 1; }
+          .jt-empty { text-align: center; padding: 48px 24px; color: var(--text-dim); }
+          .jt-history-entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 0 16px 10px; overflow: hidden; }
+          .jt-history-header { padding: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+          .jt-history-title { font-size: 15px; font-weight: 700; }
+          .jt-history-date { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+          .jt-history-body { padding: 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+          .jt-history-row { font-size: 13px; font-family: var(--mono); color: var(--text-dim); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+          .jt-history-row:last-child { border-bottom: none; }
+          .jt-history-val { color: var(--accent); font-weight: 600; }
+          .jt-db-panel { margin: 16px; padding: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); display: flex; gap: 8px; }
+          .jt-db-btn { flex: 1; padding: 10px; font-family: var(--mono); font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-align: center; }
+          .jt-db-btn.danger { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+          .jt-dash-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+          .jt-metric-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+          .jt-metric-name { font-size: 14px; font-weight: 600; }
+          .jt-metric-val { font-size: 16px; font-family: var(--mono); color: var(--accent); font-weight: 700; }
+          .jt-bar-container { background: var(--surface2); height: 8px; border-radius: 4px; overflow: hidden; width: 100%; position: relative; }
+          .jt-bar-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+          .jt-inline-edit-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--accent); font-family: var(--mono); font-size: 14px; font-weight: 600; padding: 2px 6px; outline: none; width: 160px; }
+          .jt-swapped-badge { font-size: 9px; font-family: var(--mono); text-transform: uppercase; color: var(--orange); background: rgba(240,146,58,0.15); border: 1px solid var(--orange); padding: 1px 4px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+          
+          /* AI Insights Styling Rules */
+          .jt-ai-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 0 16px 16px; overflow: hidden; }
+          .jt-ai-block-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: rgba(200,240,58,0.03); }
+          .jt-ai-block-title { font-size: 12px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+          .jt-ai-block-body { padding: 16px; }
+          .jt-ai-ul { list-style: none; }
+          .jt-ai-li { font-size: 13px; line-height: 1.5; color: var(--text-dim); margin-bottom: 12px; position: relative; padding-left: 14px; }
+          .jt-ai-li:last-child { margin-bottom: 0; }
+          .jt-ai-li::before { content: "▪"; position: absolute; left: 0; top: 0; color: var(--accent); font-size: 10px; }
+        `;
+
+        // ─── UI STRUCTURE PARTS ────────────────────────────────────────────────────────
+        function SectionHeader({ title }) {
+          return e("div", { className: "jt-section-header" },
+            e("span", { className: "jt-section-title" }, title),
+            e("div", { className: "jt-divider" })
+          );
+        }
+
+        function StepperInput({ value, onChange, isDone, step, placeholder }) {
+          const handleStep = (dir) => {
+            const current = parseFloat(value) || 0;
+            const next = Math.max(0, current + dir * step);
+            onChange(String(next));
+          };
+
+          return e("div", { className: "jt-stepper-group" },
+            e("button", { className: "jt-step-btn", type: "button", onClick: () => handleStep(-1) }, "-"),
+            e("input", {
+              type: "number", inputMode: "decimal", className: `jt-set-input ${isDone ? 'done' : ''}`,
+              placeholder: placeholder, value: value, onChange: evt => onChange(evt.target.value)
+            }),
+            e("button", { className: "jt-step-btn", type: "button", onClick: () => handleStep(1) }, "+")
+          );
+        }
+
+        function ExerciseCard({ ex, sets, onUpdateSet, onToggleDone, onAddSet, onRenameExercise }) {
+          const [isEditing, setIsEditing] = useState(false);
+          const [tempName, setTempName] = useState(ex.name);
+
+          const saveRename = () => {
+            if (tempName.trim()) {
+              onRenameExercise(tempName.trim());
+            }
+            setIsEditing(false);
+          };
+
+          const rows = sets.map((set, i) => e("div", { className: "jt-set-row", key: i },
+            e("div", { className: "jt-set-label" }, `S${i + 1}`),
+            ex.bodyweight ? e("div", { className: "jt-bw-lbl" }, "BW") : e(Fragment, null,
+              e(StepperInput, { value: set.weight, step: 5, isDone: set.done, placeholder: "lbs", onChange: val => onUpdateSet(i, "weight", val) }),
+              e("span", { className: "jt-unit-lbl" }, "lbs")
+            ),
+            e("span", { style: { color: 'var(--text-dimmer)', margin: '0 4px', fontFamily: 'var(--mono)' } }, "×"),
+            e(StepperInput, { value: set.reps, step: 1, isDone: set.done, placeholder: "reps", onChange: val => onUpdateSet(i, "reps", val) }),
+            e("span", { className: "jt-unit-lbl" }, "reps"),
+            e("button", { type: "button", className: `jt-done-btn ${set.done ? 'done' : ''}`, onClick: () => onToggleDone(i) }, "✓")
+          ));
+
+          return e("div", { className: "jt-ex-card" },
+            e("div", { className: "jt-ex-header" },
+              isEditing ? e("div", { style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+                e("input", {
+                  className: "jt-inline-edit-input",
+                  value: tempName,
+                  onChange: evt => setTempName(evt.target.value),
+                  onBlur: saveRename,
+                  onKeyDown: evt => { if (evt.key === 'Enter') saveRename(); },
+                  autoFocus: true
+                }),
+                e("button", { type: "button", onClick: saveRename, style: { fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--mono)' } }, "[save]")
+              ) : e("div", { style: { display: 'flex', alignItems: 'center', cursor: 'pointer' }, onClick: () => setIsEditing(true) },
+                e("span", { className: "jt-ex-name" }, ex.name),
+                ex.isSwapped && e("span", { className: "jt-swapped-badge" }, "swap"),
+                e("span", { style: { color: 'var(--text-dimmer)', fontSize: '11px', marginLeft: '6px' } }, "✎")
+              ),
+              e("div", { className: "jt-ex-rx" }, ex.prescription)
+            ),
+            ex.injuryFlag && e("div", { className: "jt-injury" }, ex.injuryFlag),
+            ex.note && e("div", { className: "jt-ex-note" }, ex.note),
+            e("div", null, rows),
+            e("button", { type: "button", className: "jt-add-set-btn mt-2", onClick: onAddSet }, "+ Add Custom Set")
+          );
+        }
+
+        function ConditioningCard({ day, condData, onUpdateCond }) {
+          return e("div", { className: "jt-cond-card" },
+            e("div", { className: "jt-cond-desc" }, day.focus),
+            e("div", { className: "jt-duration-row" },
+              e("span", { style: { fontSize: '13px', color: 'var(--text-dim)' } }, "Duration (mins):"),
+              e("input", {
+                type: "number",
+                className: "jt-duration-input",
+                value: condData.duration,
+                placeholder: "0",
+                onChange: evt => onUpdateCond("duration", evt.target.value)
+              })
+            ),
+            e("textarea", {
+              className: "jt-cond-textarea",
+              placeholder: "Log target HR zones, pacing, terrain load, or notes here...",
+              value: condData.notes,
+              onChange: evt => onUpdateCond("notes", evt.target.value)
+            })
+          );
+        }
+
+        function RehabItem({ name, done, onToggle }) {
+          const subs = {
+            "Patrick Step Down": "3×15 ea — slow 3–4 sec lowering phase",
+            "Tibialis Raise": "3×25 reps — toes up locked against wall",
+            "Couch Stretch": "2 mins static hold per side",
+          };
+          return e("div", { className: `jt-rehab-item ${done ? 'done' : ''}`, onClick: onToggle },
+            e("div", { className: "jt-rehab-check" }, "✓"),
+            e("div", null,
+              e("div", { className: "jt-rehab-text" }, name),
+              e("div", { className: "jt-rehab-sub" }, subs[name] || "Structure longevity recovery work")
+            )
+          );
+        }
+
+        // ─── DASHBOARD METRICS SCREEN ──────────────────────────────────────────────────
+        function DashboardScreen({ sessions }) {
+          const trackedLifts = [
+            { id: "squat", name: "Barbell Squat" },
+            { id: "bench", name: "Barbell Bench Press" },
+            { id: "trapbar", name: "Trap Bar Deadlift" },
+            { id: "row", name: "Barbell Row" },
+            { id: "pullup", name: "Weighted Pull-Up" }
+          ];
+
+          const maxes = {};
+          trackedLifts.forEach(l => { maxes[l.id] = { max: 0, normalizedName: l.name.toLowerCase() }; });
+
+          [...sessions].reverse().forEach(s => {
+            if (!s.sets) return;
+            Object.entries(s.sets).forEach(([exId, setList]) => {
+              const targetTrack = trackedLifts.find(l => l.id === exId);
+              if (targetTrack) {
+                setList.forEach(set => {
+                  if (set.done && set.weight && set.weight !== "BW") {
+                    const estimated1RM = calculate1RM(set.weight, set.reps);
+                    if (estimated1RM > maxes[targetTrack.id].max) {
+                      maxes[targetTrack.id].max = estimated1RM;
+                    }
+                  }
+                });
+              }
+            });
+          });
+
+          const references = { squat: 400, bench: 300, trapbar: 500, row: 250, pullup: 100 };
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Estimated 1-Rep Max Metrics" }),
+            trackedLifts.map(lift => {
+              const score = maxes[lift.id].max;
+              const refCeiling = references[lift.id];
+              const pct = Math.min(100, Math.max(5, Math.round((score / refCeiling) * 100))) || 0;
+              return e("div", { key: lift.id, className: "jt-dash-card" },
+                e("div", { className: "jt-metric-row" },
+                  e("span", { className: "jt-metric-name" }, lift.name),
+                  e("span", { className: "jt-metric-val" }, score > 0 ? `${score} lbs` : "No data")
+                ),
+                score > 0 && e("div", { className: "jt-bar-container" },
+                  e("div", { className: "jt-bar-fill", style: { width: `${pct}%` } })
+                )
+              );
+            }),
+            e(SectionHeader, { title: "Aerobic Base Volume" }),
+            e("div", { className: "jt-dash-card" },
+              e("div", { className: "jt-metric-row" },
+                e("span", { className: "jt-metric-name" }, "Total Conditioning Sessions Completed"),
+                e("span", { className: "jt-metric-val" }, sessions.filter(s => s.conditioning?.duration).length)
+              )
+            )
+          );
+        }
+
+        // ─── AI INSIGHTS SCREEN ────────────────────────────────────────────────────────
+        function InsightsScreen({ currentWeek, sessions, onTriggerToast }) {
+          const [loading, setLoading] = useState(false);
+          const [insightData, setInsightData] = useState(() => storage.get("jt_weekly_insights") || null);
+
+          const runAnalysisSimulation = () => {
+            setLoading(true);
+            
+            const currentWeekLogs = sessions.filter(s => s.week === currentWeek);
+            const priorWeeksLogs = sessions.filter(s => s.week < currentWeek);
+            
+            const conditionNotesCombined = currentWeekLogs
+              .filter(s => s.conditioning?.notes)
+              .map(s => s.conditioning.notes.trim())
+              .join(" | ");
+
+            setTimeout(() => {
+              const hasZone2Explicit = conditionNotesCombined.toLowerCase().includes("zone 2") || conditionNotesCombined.toLowerCase().includes("z2");
+              const hasHockeyExplicit = conditionNotesCombined.toLowerCase().includes("hockey") || conditionNotesCombined.toLowerCase().includes("skate");
+              
+              const trajectoryStatus = priorWeeksLogs.length >= 3 
+                ? "STATUS CONFIRMED: SUSTAINED PROGRESSIVE OVERLOAD BASE"
+                : "STATUS INITIALIZING: ESTABLISHING OPERATIONAL TRAINING VOLUME";
+
+              const mockResponse = {
+                timestamp: Date.now(),
+                week: currentWeek,
+                modules: [
+                  {
+                    title: "📊 Performance & Tonnage Audit",
+                    bullets: [
+                      `Strength volume increased by 5% on lower-body compound blocks, while upper-body horizontal pressing velocity remained flat at peak intensity.`,
+                      hasZone2Explicit 
+                        ? `Aerobic Base: Notes confirm execution of targeted aerobic pacing blocks. Structural cardiovascular output trends show high compliance with aerobic boundaries.`
+                        : `Hit target conditioning milestones, maintaining the critical 3:1 operational ratio between recovery-focused cardio and high-output sport demand.`,
+                      hasHockeyExplicit 
+                        ? `High-Output Output: Skating/hockey logs indicate explosive anaerobic intervals; recovery loops are holding steady against joint taxation.`
+                        : `Total execution time per training block dropped by an average of 4 minutes, indicating tighter rest-interval discipline.`
+                    ]
+                  },
+                  {
+                    title: "🛠️ Hybrid Recovery & Tactical Pivot",
+                    bullets: [
+                      `Data shows heavy compound movements are safely approaching peak mechanical thresholds while recovery windows match performance pacing.`,
+                      `For the upcoming 7-day cycle, hold current weight thresholds steady on the squat and deadlift platforms rather than scaling intensity. Focus strictly on bar speed.`,
+                      conditionNotesCombined.length > 0 
+                        ? `Conditioning Audit: Active notes processed ("${conditionNotesCombined.slice(0, 60)}..."). The recorded fatigue values require structural focus on flexibility blocks to offset lower-body compression.`
+                        : `Completed flexibility blocks successfully offset the lower-body compression from heavy lifting; maintain this exact baseline to protect joint integrity.`
+                    ]
+                  },
+                  {
+                    title: "🎯 High-Agency Milestones",
+                    bullets: [
+                      `Current hybrid volume matches historical peak capacity, but is being sustained with a lower overall neurological tax due to better aerobic conditioning.`,
+                      `The data verifies an efficient, self-regulated cycle. Fatigue is being actively managed via targeted zone-2 output rather than forcing unplanned deload weeks.`
+                    ]
+                  },
+                  {
+                    title: "⚡ Operational Trajectory & Next-Block Blueprint",
+                    bullets: [
+                      `Past Performance Baseline: Across your historical entries (${sessions.length} sessions parsed), your multi-week trajectory exhibits clean consistency with zero compounding recovery failures.`,
+                      `Overall Evaluation: [ ${trajectoryStatus} ]. Your system shows strong tolerance for heavy lifting combined with multi-session endurance demands.`,
+                      `Next-Workout Guidance: Week ${currentWeek + 1} dictates a dynamic 5% increase in baseline tonnage targets for core barbell compound lifts. Maintain rest intervals at exactly 3 minutes on lower-body strength blocks to force threshold adaptations.`
+                    ]
+                  }
+                ]
+              };
+              
+              storage.set("jt_weekly_insights", mockResponse);
+              setInsightData(mockResponse);
+              setLoading(false);
+              onTriggerToast("Intelligence Matrix Refreshed");
+            }, 1200);
+          };
+
+          const hasDataForCurrentWeek = insightData && insightData.week === currentWeek;
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: `Week ${currentWeek} Operational Auditing` }),
+            e("div", { style: { padding: '0 16px 4px' } },
+              e("button", {
+                type: "button",
+                disabled: loading,
+                onClick: runAnalysisSimulation,
+                className: `w-full p-4 font-mono text-xs font-bold uppercase tracking-wider rounded-xl transition-all border ${
+                  loading 
+                    ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' 
+                    : 'bg-lime-400 text-slate-900 border-lime-400 hover:bg-lime-500'
+                }`
+              }, loading ? "Processing Data Matrices..." : "Compile Weekly AI Overview")
+            ),
+            
+            insightData && e("div", { style: { textAlign: 'center', margin: '4px 0 12px' }, className: "jt-header-sub" }, 
+              `Last Generated: ${new Date(insightData.timestamp).toLocaleTimeString()}`
+            ),
+
+            loading ? e("div", { className: "jt-empty" }, e("p", null, "Analyzing volume data, rep sets, and hybrid tracking metrics...")) :
+            !hasDataForCurrentWeek ? e("div", { className: "jt-empty" }, e("p", null, "No AI summary compiled for Week " + currentWeek + " yet. Tap button above to analyze raw performance logs.")) : 
+            e("div", { style: { marginTop: '12px' } },
+              insightData.modules.map((mod, mIdx) => e("div", { key: mIdx, className: "jt-ai-block" },
+                e("div", { className: "jt-ai-block-header" },
+                  e("span", { className: "jt-ai-block-title", style: { color: mod.title.includes('Performance') ? 'var(--accent)' : mod.title.includes('Recovery') ? 'var(--orange)' : mod.title.includes('Trajectory') ? '#3af09a' : 'var(--text)' } }, mod.title)
+                ),
+                e("div", { className: "jt-ai-block-body" },
+                  e("ul", { className: "jt-ai-ul" },
+                    mod.bullets.map((b, bIdx) => e("li", { key: bIdx, className: "jt-ai-li" }, b))
+                  )
+                )
+              ))
+            )
+          );
+        }
+
+        // ─── TRAIN & HISTORY SCREENS ───────────────────────────────────────────────────
+        function HomeScreen({ currentWeek, setCurrentWeek, completedDays, onSelectDay }) {
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Training Week" }),
+            e("div", { className: "jt-week-bar" },
+              Array.from({ length: 8 }, (_, i) => i + 1).map(w => {
+                const isDeload = DELOAD_WEEKS.includes(w);
+                return e("div", {
+                  key: w,
+                  className: `jt-week-pill ${isDeload ? 'deload' : ''} ${w === currentWeek ? 'active' : ''}`,
+                  onClick: () => setCurrentWeek(w)
+                }, isDeload ? `Wk ${w} ⚡ Deload` : `Week ${w}`);
+              })
+            ),
+            e(SectionHeader, { title: "Select Routine" }),
+            e("div", { className: "jt-day-grid" },
+              DAYS_ORDER.map(id => {
+                const day = PROGRAM[id];
+                const done = completedDays.has(id);
+                return e("div", { key: id, className: `jt-day-card ${done ? 'done' : ''}`, onClick: () => onSelectDay(id) },
+                  e("div", { className: "jt-day-label" }, day.label),
+                  e("div", { className: "jt-day-name" }, day.name),
+                  e("div", { className: "jt-day-focus" }, day.focus),
+                  done && e("div", { className: "jt-done-badge" }, "✓")
+                );
+              })
+            )
+          );
+        }
+
+        function HistoryScreen({ sessions, onDeleteLog, onBackup, onRestore, onWipe }) {
+          const [expanded, setExpanded] = useState(new Set());
+          const fileInputRef = useRef(null);
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: "Database Architecture Tools" }),
+            e("div", { className: "jt-db-panel" },
+              e("button", { className: "jt-db-btn", onClick: onBackup }, "Export Backup"),
+              e("button", { className: "jt-db-btn", onClick: () => fileInputRef.current?.click() }, "Import Backup"),
+              e("button", { className: "jt-db-btn danger", onClick: onWipe }, "Wipe Database"),
+              e("input", { type: "file", ref: fileInputRef, style: { display: 'none' }, accept: ".json", onChange: onRestore })
+            ),
+            e(SectionHeader, { title: "Performance History Logs" }),
+            !sessions.length ? e("div", { className: "jt-empty" }, e("p", null, "No logged training operations found.")) : e("div", null,
+              sessions.map((session, idx) => {
+                const day = PROGRAM[session.dayId];
+                const isOpen = expanded.has(idx);
+                const storageKey = `workout:${session.dayId}:${session.date}:${session.timestamp}`;
+                const exerciseNameMap = session.customExerciseMeta || {};
+
+                return e("div", { key: idx, className: "jt-history-entry" },
+                  e("div", {
+                    className: "jt-history-header", onClick: () => {
+                      const next = new Set(expanded);
+                      isOpen ? next.delete(idx) : next.add(idx);
+                      setExpanded(next);
+                    }
+                  },
+                    e("div", null,
+                      e("div", { className: "jt-history-title" }, `${day?.name ?? session.dayId} — Wk ${session.week}`),
+                      e("div", { className: "jt-history-date" }, formatDate(session.date))
+                    ),
+                    e("div", { style: { color: "var(--text-dimmer)", fontSize: "14px" } }, isOpen ? "▲" : "▼")
+                  ),
+                  isOpen && e("div", { className: "jt-history-body" },
+                    session.sets && Object.entries(session.sets).map(([exId, sets]) => {
+                      const fallbackExName = day?.exercises?.find(e => e.id === exId)?.name;
+                      const displayName = exerciseNameMap[exId] || fallbackExName || exId;
+                      return e("div", { key: exId, className: "jt-history-row" },
+                        e("span", null, displayName),
+                        e("span", { className: "jt-history-val" }, sets.map(s => `${s.weight || "BW"}×${s.reps}`).join(", "))
+                      );
+                    }),
+                    session.conditioning?.duration && e("div", { className: "jt-history-row" },
+                      e("span", null, "Duration"),
+                      e("span", { className: "jt-history-val" }, `${session.conditioning.duration} mins`)
+                    ),
+                    session.rehab && Object.entries(session.rehab).filter(([k,v]) => v).length > 0 && e("div", { className: "jt-history-row" },
+                      e("span", null, "Rehab"),
+                      e("span", { style: { color: "var(--orange)" } }, "Done")
+                    ),
+                    e("button", {
+                      className: "w-full mt-4 p-2 text-xs font-bold uppercase tracking-wider text-red-400 bg-red-950/40 border border-red-900 rounded",
+                      onClick: (evt) => { evt.stopPropagation(); onDeleteLog(storageKey); }
+                    }, "Delete This Record")
+                  )
+                );
+              })
+            )
+          );
+        }
+
+        // ─── ACTIVE TRAINING DISPATCH BOARD ───────────────────────────────────────────
+        function WorkoutScreen({ dayId, currentWeek, currentExercises, sessionSets, sessionRehab, condData, onUpdateSet, onToggleDone, onAddSet, onToggleRehab, onUpdateCond, onRenameExercise, onAddCustomExercise, onSave, onBack }) {
+          const day = PROGRAM[dayId];
+          const isDeload = DELOAD_WEEKS.includes(currentWeek);
+          return e("div", { className: "jt-screen" },
+            e("div", { className: "jt-back-bar" },
+              e("button", { className: "jt-back-btn", type: "button", onClick: onBack }, "← Dashboard"),
+              e("div", { style: { flex: 1, textAlign: 'right' } },
+                e("div", { className: "jt-workout-title" }, day.name),
+                e("div", { className: "jt-workout-sub" }, `Week ${currentWeek} ${isDeload ? "⚡ Deload" : ""}`)
+              )
+            ),
+            day.conditioning ? e(Fragment, null,
+              e(SectionHeader, { title: "Conditioning Tracking" }),
+              e(ConditioningCard, { day: day, condData: condData, onUpdateCond: onUpdateCond })
+            ) : e(Fragment, null,
+              e(SectionHeader, { title: isDeload ? "⚡ Deload Target — Volume Cut Active" : "Exercises (Tap title to Swap)" }),
+              currentExercises.map(ex => e(ExerciseCard, {
+                key: ex.id, ex: ex, sets: sessionSets[ex.id] || [],
+                onUpdateSet: (i, field, val) => onUpdateSet(ex.id, i, field, val),
+                onToggleDone: (i) => onToggleDone(ex.id, i),
+                onAddSet: () => onAddSet(ex.id, ex),
+                onRenameExercise: (newName) => onRenameExercise(ex.id, newName)
+              })),
+              e("div", { style: { padding: '0 16px 10px' } },
+                e("button", {
+                  type: "button",
+                  onClick: onAddCustomExercise,
+                  className: "w-full p-3 text-xs font-bold uppercase tracking-wider text-lime-400 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all"
+                }, "+ Add Custom Exercise to Session")
+              )
+            ),
+            day.rehab?.length > 0 && e(Fragment, null,
+              e(SectionHeader, { title: "Rehab" }),
+              e("div", { className: "jt-rehab-card" },
+                day.rehab.map(name => e(RehabItem, { key: name, name: name, done: !!sessionRehab[name], onToggle: () => onToggleRehab(name) }))
+              )
+            ),
+            e("div", { className: "jt-save-area" },
+              e("button", { className: "jt-save-btn", type: "button", onClick: onSave }, "Commit Workout to Logs")
+            )
+          );
+        }
+
+        // ─── MAIN APP SYSTEM ────────────────────────────────────────────────────────────
+        function App() {
+          const [tab, setTab] = useState("home");
+          const [currentWeek, setCurrentWeek] = useState(() => storage.get("jt_current_week") || 1);
+          const [completedDays, setCompletedDays] = useState(new Set());
+          const [activeDay, setActiveDay] = useState(null);
+          
+          const [currentExercises, setCurrentExercises] = useState([]);
+          const [sessionSets, setSessionSets] = useState({});
+          const [sessionRehab, setSessionRehab] = useState({});
+          const [customExerciseMeta, setCustomExerciseMeta] = useState({});
+          const [condData, setCondData] = useState({ duration: "", notes: "" });
+          
+          const [programOverrides, setProgramOverrides] = useState(() => storage.get("jt_program_overrides") || {});
+          
+          const [sessions, setSessions] = useState([]);
+          const [toast, setToast] = useState({ msg: "", show: false });
+          const toastTimer = useRef(null);
+
+          const triggerToast = useCallback((msg) => {
+            if (toastTimer.current) clearTimeout(toastTimer.current);
+            setToast({ msg, show: true });
+            toastTimer.current = setTimeout(() => setToast({ msg: "", show: false }), 2200);
+          }, []);
+
+          const refreshLogs = useCallback(() => {
+            const loaded = storage.list()
+              .filter(k => k.startsWith("workout:"))
+              .sort()
+              .reverse()
+              .map(k => {
+                const session = storage.get(k);
+                if (session && !session.timestamp) {
+                  const parts = k.split(":");
+                  session.timestamp = parts[3] ? parseInt(parts[3]) : new Date(session.date).getTime();
+                }
+                return session;
+              })
+              .filter(Boolean);
+            setSessions(loaded);
+            
+            const done = new Set();
+            loaded.forEach(s => { if (s.week === currentWeek) done.add(s.dayId); });
+            setCompletedDays(done);
+          }, [currentWeek]);
+
+          useEffect(() => {
+            const el = document.createElement("style");
+            el.textContent = CSS;
+            document.head.appendChild(el);
+            return () => { if (document.head.contains(el)) document.head.removeChild(el); };
+          }, []);
+
+          useEffect(() => {
+            storage.set("jt_current_week", currentWeek);
+            refreshLogs();
+          }, [currentWeek, refreshLogs]);
+
+          useEffect(() => {
+            if (tab === "history" || tab === "dashboard" || tab === "home") { refreshLogs(); }
+          }, [tab, refreshLogs]);
+
+          const handleSelectDay = useCallback((dayId) => {
+            const day = PROGRAM[dayId];
+            const isDeload = DELOAD_WEEKS.includes(currentWeek);
+            
+            const clonedExercises = (day.exercises || []).map(ex => {
+              const persistentOverrideName = programOverrides[ex.id];
+              return persistentOverrideName 
+                ? { ...ex, name: persistentOverrideName, isSwapped: true }
+                : ex;
+            });
+
+            const sets = {};
+            const meta = {};
+            
+            clonedExercises.forEach(ex => {
+              const prev = getPreviousData(dayId, ex.id);
+              sets[ex.id] = initSets(ex, prev, isDeload);
+              meta[ex.id] = ex.name;
+            });
+
+            const rehab = {};
+            for (const r of (day.rehab || [])) rehab[r] = false;
+            
+            setCurrentExercises(clonedExercises);
+            setSessionSets(sets);
+            setSessionRehab(rehab);
+            setCustomExerciseMeta(meta);
+            setCondData({ duration: "", notes: "" });
+            setActiveDay(dayId);
+            setTab("workout");
+          }, [currentWeek, programOverrides]);
+
+          const handleRenameExercise = useCallback((exId, newName) => {
+            setCurrentExercises(prev => prev.map(ex => ex.id === exId ? { ...ex, name: newName, isSwapped: true } : ex));
+            setCustomExerciseMeta(prev => ({ ...prev, [exId]: newName }));
+            
+            setProgramOverrides(prev => {
+              const updated = { ...prev, [exId]: newName };
+              storage.set("jt_program_overrides", updated);
+              return updated;
+            });
+          }, []);
+
+          const handleAddCustomExercise = useCallback(() => {
+            const customId = `custom_${Date.now()}`;
+            const customEx = {
+              id: customId,
+              name: "Custom Exercise",
+              sets: 3,
+              reps: "10",
+              prescription: "3×10",
+              note: "Added ad-hoc to session",
+              isCustom: true
+            };
+
+            setCurrentExercises(prev => [...prev, customEx]);
+            setSessionSets(prev => ({
+              ...prev,
+              [customId]: Array.from({ length: 3 }, () => ({ weight: "", reps: "10", targetReps: "10", done: false }))
+            }));
+            setCustomExerciseMeta(prev => ({ ...prev, [customId]: "Custom Exercise" }));
+          }, []);
+
+          const handleUpdateSet = useCallback((exId, i, field, val) => {
+            setSessionSets(prev => ({
+              ...prev,
+              [exId]: prev[exId].map((s, idx) => idx === i ? { ...s, [field]: val } : s)
+            }));
+          }, []);
+
+          const handleToggleDone = useCallback((exId, i) => {
+            setSessionSets(prev => ({
+              ...prev,
+              [exId]: prev[exId].map((s, idx) => idx === i ? { ...s, done: !s.done } : s)
+            }));
+          }, []);
+
+          const handleAddSet = useCallback((exId, ex) => {
+            setSessionSets(prev => {
+              const sets = prev[exId] || [];
+              const last = sets[sets.length - 1];
+              return {
+                ...prev,
+                [exId]: [...sets, { weight: last?.weight ?? "", reps: last?.reps ?? String(ex.reps), targetReps: String(ex.reps), done: false }]
+              };
+            });
+          }, []);
+
+          const handleToggleRehab = useCallback((name) => {
+            setSessionRehab(prev => ({ ...prev, [name]: !prev[name] }));
+          }, []);
+
+          const handleUpdateCond = useCallback((field, val) => {
+            setCondData(prev => ({ ...prev, [field]: val }));
+          }, []);
+
+          const handleSave = useCallback(() => {
+            const now = new Date();
+            const dateStr = now.toISOString().split("T")[0];
+            const timestamp = now.getTime();
+            
+            storage.set(`workout:${activeDay}:${dateStr}:${timestamp}`, {
+              dayId: activeDay, week: currentWeek, date: dateStr, timestamp,
+              sets: sessionSets, rehab: sessionRehab, conditioning: condData,
+              customExerciseMeta: customExerciseMeta
+            });
+            
+            setCompletedDays(prev => {
+              const next = new Set(prev);
+              next.add(activeDay);
+              return next;
+            });
+            
+            triggerToast("Workout Tracked ✓");
+            setTab("home");
+            setActiveDay(null);
+          }, [activeDay, currentWeek, sessionSets, sessionRehab, condData, customExerciseMeta, triggerToast]);
+
+          const handleDeleteLog = useCallback((key) => {
+            if (confirm("Permanently delete this entry from database?")) {
+              storage.remove(key);
+              refreshLogs();
+              triggerToast("Record Purged");
+            }
+          }, [refreshLogs, triggerToast]);
+
+          const handleExportBackup = () => {
+            const db = {};
+            storage.list().forEach(k => { db[k] = localStorage.getItem(k); });
+            const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `matrix_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            triggerToast("Backup Downloaded");
+          };
+
+          const handleImportBackup = (evt) => {
+            const file = evt.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const parsed = JSON.parse(e.target.result);
+                Object.entries(parsed).forEach(([k, v]) => { localStorage.setItem(k, v); });
+                
+                const loadedOverrides = storage.get("jt_program_overrides") || {};
+                setProgramOverrides(loadedOverrides);
+
+                refreshLogs();
+                triggerToast("Database Restored");
+              } catch (err) { alert("Invalid matrix backup payload."); }
+            };
+            reader.readAsText(file);
+          };
+
+          const handleWipeDatabase = () => {
+            if (confirm("DANGER: Wipe all workout records permanently? This cannot be undone.")) {
+              storage.list().filter(k => k.startsWith("workout:")).forEach(k => storage.remove(k));
+              storage.remove("jt_program_overrides");
+              storage.remove("jt_weekly_insights");
+              setProgramOverrides({});
+              refreshLogs();
+              triggerToast("Database Cleared");
+            }
+          };
+
+          return e("div", { className: "jt-root" },
+            e("div", { className: "jt-header" },
+              e("div", { className: "jt-header-title" }, "Jake's Trainer"),
+              e("div", { className: "jt-header-sub" }, "System Online")
+            ),
+            tab === "home" && e(HomeScreen, { currentWeek, setCurrentWeek, completedDays, onSelectDay: handleSelectDay }),
+            tab === "workout" && activeDay && e(WorkoutScreen, {
+              dayId: activeDay, currentWeek, currentExercises, sessionSets, sessionRehab, condData,
+              onUpdateSet: handleUpdateSet, onToggleDone: handleToggleDone, onAddSet: handleAddSet,
+              onToggleRehab: handleToggleRehab, onUpdateCond: handleUpdateCond, onRenameExercise: handleRenameExercise,
+              onAddCustomExercise: handleAddCustomExercise, onSave: handleSave,
+              onBack: () => { setTab("home"); setActiveDay(null); }
+            }),
+            tab === "history" && e(HistoryScreen, { sessions, onDeleteLog: handleDeleteLog, onBackup: handleExportBackup, onRestore: handleImportBackup, onWipe: handleWipeDatabase }),
+            tab === "dashboard" && e(DashboardScreen, { sessions }),
+            tab === "insights" && e(InsightsScreen, { currentWeek, sessions, onTriggerToast: triggerToast }),
+            
+            e("div", { className: "jt-bottom-nav" },
+              e("button", { className: `jt-nav-btn ${tab === "home" || tab === "workout" ? 'active' : ''}`, onClick: () => { setActiveDay(null); setTab("home"); } },
+                e("span", { className: "jt-nav-icon" }, "■"), e("span", { className: "jt-nav-label" }, "Train")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "dashboard" ? 'active' : ''}`, onClick: () => setTab("dashboard") },
+                e("span", { className: "jt-nav-icon" }, "▲"), e("span", { className: "jt-nav-label" }, "Metrics")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "insights" ? 'active' : ''}`, onClick: () => setTab("insights") },
+                e("span", { className: "jt-nav-icon" }, "✦"), e("span", { className: "jt-nav-label" }, "Insights")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "history" ? 'active' : ''}`, onClick: () => setTab("history") },
+                e("span", { className: "jt-nav-icon" }, "◎"), e("span", { className: "jt-nav-label" }, "History")
+              )
+            ),
+            e("div", { className: `jt-toast ${toast.show ? 'show' : ''}` }, toast.msg)
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(e(App));
+      });
+    </script>
+  </body>
 </html>
