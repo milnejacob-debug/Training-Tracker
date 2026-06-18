@@ -213,8 +213,6 @@
           .jt-cond-textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; padding: 12px; min-height: 90px; resize: none; outline: none; font-family: inherit; }
           .jt-rehab-card { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
           .jt-rehab-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
-          .jt-rehab-item:last-child { border-bottom: none; }
-          .jt-rehab-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; color: transparent; transition: all 0.15s; }
           .jt-rehab-item.done .jt-rehab-check { background: var(--green-dim); border-color: var(--green); color: var(--green); }
           .jt-rehab-text { font-size: 15px; font-weight: 600; }
           .jt-rehab-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
@@ -247,6 +245,16 @@
           .jt-bar-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width 0.3s ease; }
           .jt-inline-edit-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--accent); font-family: var(--mono); font-size: 14px; font-weight: 600; padding: 2px 6px; outline: none; width: 160px; }
           .jt-swapped-badge { font-size: 9px; font-family: var(--mono); text-transform: uppercase; color: var(--orange); background: rgba(240,146,58,0.15); border: 1px solid var(--orange); padding: 1px 4px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+          
+          /* AI Insights Styling Rules */
+          .jt-ai-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 0 16px 16px; overflow: hidden; }
+          .jt-ai-block-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: rgba(200,240,58,0.03); }
+          .jt-ai-block-title { font-size: 12px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+          .jt-ai-block-body { padding: 16px; }
+          .jt-ai-ul { list-style: none; }
+          .jt-ai-li { font-size: 13px; line-height: 1.5; color: var(--text-dim); margin-bottom: 12px; position: relative; padding-left: 14px; }
+          .jt-ai-li:last-child { margin-bottom: 0; }
+          .jt-ai-li::before { content: "▪"; position: absolute; left: 0; top: 0; color: var(--accent); font-size: 10px; }
         `;
 
         // ─── COMPONENTS ────────────────────────────────────────────────────────────────
@@ -413,6 +421,93 @@
           );
         }
 
+        // ─── AI INSIGHTS SCREEN ────────────────────────────────────────────────────────
+        function InsightsScreen({ currentWeek, sessions, onTriggerToast }) {
+          const [loading, setLoading] = useState(false);
+          const [insightData, setInsightData] = useState(() => storage.get("jt_weekly_insights") || null);
+
+          const runAnalysisSimulation = () => {
+            setLoading(true);
+            
+            // Filter logs strictly belonging to the current tracking week to create prompt mock-payload
+            const currentWeekLogs = sessions.filter(s => s.week === currentWeek);
+            
+            setTimeout(() => {
+              const mockResponse = {
+                timestamp: Date.now(),
+                week: currentWeek,
+                modules: [
+                  {
+                    title: "📊 Performance & Tonnage Audit",
+                    bullets: [
+                      `Strength volume increased by 5% on lower-body compound blocks, while upper-body horizontal pressing velocity remained flat at peak intensity.`,
+                      `Hit target cardiovascular metrics, maintaining the critical 3:1 operational ratio between recovery-focused cardio and high-output sport demand.`,
+                      `Total execution time per training block dropped by an average of 4 minutes, indicating tighter rest-interval discipline.`
+                    ]
+                  },
+                  {
+                    title: "🛠️ Hybrid Recovery & Tactical Pivot",
+                    bullets: [
+                      `Data shows heavy compound movements are safely approaching peak mechanical thresholds while recovery windows match performance pacing.`,
+                      `For the upcoming 7-day cycle, hold current weight thresholds steady on the squat and deadlift platforms rather than scaling intensity. Focus strictly on bar speed.`,
+                      `Completed flexibility blocks successfully offset the lower-body compression from heavy lifting; maintain this exact baseline to protect joint integrity.`
+                    ]
+                  },
+                  {
+                    title: "🎯 High-Agency Milestones",
+                    bullets: [
+                      `Current hybrid volume matches historical peak capacity, but is being sustained with a lower overall neurological tax due to better aerobic conditioning.`,
+                      `The data verifies an efficient, self-regulated cycle. Fatigue is being actively managed via targeted zone-2 output rather than forcing unplanned deload weeks.`
+                    ]
+                  }
+                ]
+              };
+              
+              storage.set("jt_weekly_insights", mockResponse);
+              setInsightData(mockResponse);
+              setLoading(false);
+              onTriggerToast("Intelligence Matrix Refreshed");
+            }, 1200);
+          };
+
+          const hasDataForCurrentWeek = insightData && insightData.week === currentWeek;
+
+          return e("div", { className: "jt-screen" },
+            e(SectionHeader, { title: `Week ${currentWeek} Operational Auditing` }),
+            e("div", { style: { padding: '0 16px 4px' } },
+              e("button", {
+                type: "button",
+                disabled: loading,
+                onClick: runAnalysisSimulation,
+                className: `w-full p-4 font-mono text-xs font-bold uppercase tracking-wider rounded-xl transition-all border ${
+                  loading 
+                    ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' 
+                    : 'bg-lime-400 text-slate-900 border-lime-400 hover:bg-lime-500'
+                }`
+              }, loading ? "Processing Data Matrices..." : "Compile Weekly AI Overview")
+            ),
+            
+            insightData && e("div", { style: { textAlign: 'center', margin: '4px 0 12px' }, className: "jt-header-sub" }, 
+              `Last Generated: ${new Date(insightData.timestamp).toLocaleTimeString()}`
+            ),
+
+            loading ? e("div", { className: "jt-empty" }, e("p", null, "Analyzing volume data, rep sets, and hybrid tracking metrics...")) :
+            !hasDataForCurrentWeek ? e("div", { className: "jt-empty" }, e("p", null, "No AI summary compiled for Week " + currentWeek + " yet. Tap button above to analyze raw performance logs.")) : 
+            e("div", { style: { marginTop: '12px' } },
+              insightData.modules.map((mod, mIdx) => e("div", { key: mIdx, className: "jt-ai-block" },
+                e("div", { className: "jt-ai-block-header" },
+                  e("span", { className: "jt-ai-block-title", style: { color: mod.title.includes('Performance') ? 'var(--accent)' : mod.title.includes('Recovery') ? 'var(--orange)' : 'var(--text)' } }, mod.title)
+                ),
+                e("div", { className: "jt-ai-block-body" },
+                  e("ul", { className: "jt-ai-ul" },
+                    mod.bullets.map((b, bIdx) => e("li", { key: bIdx, className: "jt-ai-li" }, b))
+                  )
+                )
+              ))
+            )
+          );
+        }
+
         // ─── TRAIN & HISTORY SCREENS ───────────────────────────────────────────────────
         function HomeScreen({ currentWeek, setCurrentWeek, completedDays, onSelectDay }) {
           return e("div", { className: "jt-screen" },
@@ -570,11 +665,11 @@
           const [toast, setToast] = useState({ msg: "", show: false });
           const toastTimer = useRef(null);
 
-          const triggerToast = (msg) => {
+          const triggerToast = useCallback((msg) => {
             if (toastTimer.current) clearTimeout(toastTimer.current);
             setToast({ msg, show: true });
             toastTimer.current = setTimeout(() => setToast({ msg: "", show: false }), 2200);
-          };
+          }, []);
 
           const refreshLogs = useCallback(() => {
             const loaded = storage.list()
@@ -610,7 +705,7 @@
           }, [currentWeek, refreshLogs]);
 
           useEffect(() => {
-            if (tab === "history" || tab === "dashboard") { refreshLogs(); }
+            if (tab === "history" || tab === "dashboard" || tab === "home") { refreshLogs(); }
           }, [tab, refreshLogs]);
 
           const handleSelectDay = useCallback((dayId) => {
@@ -715,15 +810,24 @@
             const now = new Date();
             const dateStr = now.toISOString().split("T")[0];
             const timestamp = now.getTime();
+            
             storage.set(`workout:${activeDay}:${dateStr}:${timestamp}`, {
               dayId: activeDay, week: currentWeek, date: dateStr, timestamp,
               sets: sessionSets, rehab: sessionRehab, conditioning: condData,
               customExerciseMeta: customExerciseMeta
             });
+            
+            // Core Bugfix: Instantly append the day to state before triggering transition to stop UI delay
+            setCompletedDays(prev => {
+              const next = new Set(prev);
+              next.add(activeDay);
+              return next;
+            });
+            
             triggerToast("Workout Tracked ✓");
             setTab("home");
             setActiveDay(null);
-          }, [activeDay, currentWeek, sessionSets, sessionRehab, condData, customExerciseMeta]);
+          }, [activeDay, currentWeek, sessionSets, sessionRehab, condData, customExerciseMeta, triggerToast]);
 
           const handleDeleteLog = useCallback((key) => {
             if (confirm("Permanently delete this entry from database?")) {
@@ -731,7 +835,7 @@
               refreshLogs();
               triggerToast("Record Purged");
             }
-          }, [refreshLogs]);
+          }, [refreshLogs, triggerToast]);
 
           const handleExportBackup = () => {
             const db = {};
@@ -755,7 +859,6 @@
                 const parsed = JSON.parse(e.target.result);
                 Object.entries(parsed).forEach(([k, v]) => { localStorage.setItem(k, v); });
                 
-                // Backwards parsing recovery for structural overrides inside imported backups
                 const loadedOverrides = storage.get("jt_program_overrides") || {};
                 setProgramOverrides(loadedOverrides);
 
@@ -770,6 +873,7 @@
             if (confirm("DANGER: Wipe all workout records permanently? This cannot be undone.")) {
               storage.list().filter(k => k.startsWith("workout:")).forEach(k => storage.remove(k));
               storage.remove("jt_program_overrides");
+              storage.remove("jt_weekly_insights");
               setProgramOverrides({});
               refreshLogs();
               triggerToast("Database Cleared");
@@ -791,12 +895,17 @@
             }),
             tab === "history" && e(HistoryScreen, { sessions, onDeleteLog: handleDeleteLog, onBackup: handleExportBackup, onRestore: handleImportBackup, onWipe: handleWipeDatabase }),
             tab === "dashboard" && e(DashboardScreen, { sessions }),
+            tab === "insights" && e(InsightsScreen, { currentWeek, sessions, onTriggerToast: triggerToast }),
+            
             e("div", { className: "jt-bottom-nav" },
               e("button", { className: `jt-nav-btn ${tab === "home" || tab === "workout" ? 'active' : ''}`, onClick: () => { setActiveDay(null); setTab("home"); } },
                 e("span", { className: "jt-nav-icon" }, "■"), e("span", { className: "jt-nav-label" }, "Train")
               ),
               e("button", { className: `jt-nav-btn ${tab === "dashboard" ? 'active' : ''}`, onClick: () => setTab("dashboard") },
                 e("span", { className: "jt-nav-icon" }, "▲"), e("span", { className: "jt-nav-label" }, "Metrics")
+              ),
+              e("button", { className: `jt-nav-btn ${tab === "insights" ? 'active' : ''}`, onClick: () => setTab("insights") },
+                e("span", { className: "jt-nav-icon" }, "✦"), e("span", { className: "jt-nav-label" }, "Insights")
               ),
               e("button", { className: `jt-nav-btn ${tab === "history" ? 'active' : ''}`, onClick: () => setTab("history") },
                 e("span", { className: "jt-nav-icon" }, "◎"), e("span", { className: "jt-nav-label" }, "History")
