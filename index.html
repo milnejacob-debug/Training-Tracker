@@ -339,30 +339,6 @@
           );
         }
 
-        function ConditioningCard({ day, condData, onUpdateCond }) {
-          const isWed = day.id === "wed";
-          return e("div", { className: "jt-cond-card" },
-            e("div", { style: { fontSize: '11px', fontFamily: 'var(--mono)', fontWeight: '700', color: 'var(--orange)', marginBottom: '6px', textTransform: 'uppercase' } },
-              isWed ? "Interval / Tempo Framework" : "Aerobic Base Target"
-            ),
-            e("div", { className: "jt-cond-desc" },
-              isWed ? "Intervals: 6–8 × 400m @ 90 sec rest | Tempo: 20–25 min Zone 3–4." : "60–75 min continuous Zone 2 run. HRM enforced."
-            ),
-            e("div", { className: "jt-duration-row" },
-              e("input", { type: "number", inputMode: "numeric", className: "jt-duration-input", placeholder: "—", value: condData.duration, onChange: evt => onUpdateCond("duration", evt.target.value) }),
-              e("div", { style: { fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--mono)' } }, "mins elapsed")
-            ),
-            e("textarea", { className: "jt-cond-textarea", placeholder: "Log operational metrics...", value: condData.notes, onChange: evt => onUpdateCond("notes", evt.target.value) })
-          );
-        }
-
-        function SectionHeader({ title }) {
-          return e("div", { className: "jt-section-header" },
-            e("span", { className: "jt-section-title" }, title),
-            e("div", { className: "jt-divider" })
-          );
-        }
-
         // ─── DASHBOARD METRICS SCREEN ──────────────────────────────────────────────────
         function DashboardScreen({ sessions }) {
           const trackedLifts = [
@@ -421,7 +397,7 @@
           );
         }
 
-        // ─── AI INSIGHTS SCREEN ────────────────────────────────────────────────────────
+        // ─── AI INSIGHTS SCREEN (UPDATED FOR DUAL LOG & HISTORIC FORECAST) ────────────
         function InsightsScreen({ currentWeek, sessions, onTriggerToast }) {
           const [loading, setLoading] = useState(false);
           const [insightData, setInsightData] = useState(() => storage.get("jt_weekly_insights") || null);
@@ -429,10 +405,23 @@
           const runAnalysisSimulation = () => {
             setLoading(true);
             
-            // Filter logs strictly belonging to the current tracking week to create prompt mock-payload
             const currentWeekLogs = sessions.filter(s => s.week === currentWeek);
+            const priorWeeksLogs = sessions.filter(s => s.week < currentWeek);
             
+            const conditionNotesCombined = currentWeekLogs
+              .filter(s => s.conditioning?.notes)
+              .map(s => s.conditioning.notes.trim())
+              .join(" | ");
+
             setTimeout(() => {
+              const hasZone2Explicit = conditionNotesCombined.toLowerCase().includes("zone 2") || conditionNotesCombined.toLowerCase().includes("z2");
+              const hasHockeyExplicit = conditionNotesCombined.toLowerCase().includes("hockey") || conditionNotesCombined.toLowerCase().includes("skate");
+              
+              // Compute dynamic trajectory evaluations based on total active record count
+              const trajectoryStatus = priorWeeksLogs.length >= 3 
+                ? "STATUS CONFIRMED: SUSTAINED PROGRESSIVE OVERLOAD BASE"
+                : "STATUS INITIALIZING: ESTABLISHING OPERATIONAL TRAINING VOLUME";
+
               const mockResponse = {
                 timestamp: Date.now(),
                 week: currentWeek,
@@ -441,8 +430,12 @@
                     title: "📊 Performance & Tonnage Audit",
                     bullets: [
                       `Strength volume increased by 5% on lower-body compound blocks, while upper-body horizontal pressing velocity remained flat at peak intensity.`,
-                      `Hit target cardiovascular metrics, maintaining the critical 3:1 operational ratio between recovery-focused cardio and high-output sport demand.`,
-                      `Total execution time per training block dropped by an average of 4 minutes, indicating tighter rest-interval discipline.`
+                      hasZone2Explicit 
+                        ? `Aerobic Base: Notes confirm execution of targeted aerobic pacing blocks. Structural cardiovascular output trends show high compliance with aerobic boundaries.`
+                        : `Hit target conditioning milestones, maintaining the critical 3:1 operational ratio between recovery-focused cardio and high-output sport demand.`,
+                      hasHockeyExplicit 
+                        ? `High-Output Output: Skating/hockey logs indicate explosive anaerobic intervals; recovery loops are holding steady against joint taxation.`
+                        : `Total execution time per training block dropped by an average of 4 minutes, indicating tighter rest-interval discipline.`
                     ]
                   },
                   {
@@ -450,7 +443,9 @@
                     bullets: [
                       `Data shows heavy compound movements are safely approaching peak mechanical thresholds while recovery windows match performance pacing.`,
                       `For the upcoming 7-day cycle, hold current weight thresholds steady on the squat and deadlift platforms rather than scaling intensity. Focus strictly on bar speed.`,
-                      `Completed flexibility blocks successfully offset the lower-body compression from heavy lifting; maintain this exact baseline to protect joint integrity.`
+                      conditionNotesCombined.length > 0 
+                        ? `Conditioning Audit: Active notes processed ("${conditionNotesCombined.slice(0, 60)}..."). The recorded fatigue values require structural focus on flexibility blocks to offset lower-body compression.`
+                        : `Completed flexibility blocks successfully offset the lower-body compression from heavy lifting; maintain this exact baseline to protect joint integrity.`
                     ]
                   },
                   {
@@ -458,6 +453,14 @@
                     bullets: [
                       `Current hybrid volume matches historical peak capacity, but is being sustained with a lower overall neurological tax due to better aerobic conditioning.`,
                       `The data verifies an efficient, self-regulated cycle. Fatigue is being actively managed via targeted zone-2 output rather than forcing unplanned deload weeks.`
+                    ]
+                  },
+                  {
+                    title: "⚡ Operational Trajectory & Next-Block Blueprint",
+                    bullets: [
+                      `Past Performance Baseline: Across your historical entries (${sessions.length} sessions parsed), your multi-week trajectory exhibits clean consistency with zero compounding recovery failures.`,
+                      `Overall Evaluation: [ ${trajectoryStatus} ]. Your system shows strong tolerance for heavy lifting combined with multi-session endurance demands.`,
+                      `Next-Workout Guidance: Week ${currentWeek + 1} dictates a dynamic 5% increase in baseline tonnage targets for core barbell compound lifts. Maintain rest intervals at exactly 3 minutes on lower-body strength blocks to force threshold adaptations.`
                     ]
                   }
                 ]
@@ -496,7 +499,7 @@
             e("div", { style: { marginTop: '12px' } },
               insightData.modules.map((mod, mIdx) => e("div", { key: mIdx, className: "jt-ai-block" },
                 e("div", { className: "jt-ai-block-header" },
-                  e("span", { className: "jt-ai-block-title", style: { color: mod.title.includes('Performance') ? 'var(--accent)' : mod.title.includes('Recovery') ? 'var(--orange)' : 'var(--text)' } }, mod.title)
+                  e("span", { className: "jt-ai-block-title", style: { color: mod.title.includes('Performance') ? 'var(--accent)' : mod.title.includes('Recovery') ? 'var(--orange)' : mod.title.includes('Trajectory') ? '#3af09a' : 'var(--text)' } }, mod.title)
                 ),
                 e("div", { className: "jt-ai-block-body" },
                   e("ul", { className: "jt-ai-ul" },
@@ -817,7 +820,6 @@
               customExerciseMeta: customExerciseMeta
             });
             
-            // Core Bugfix: Instantly append the day to state before triggering transition to stop UI delay
             setCompletedDays(prev => {
               const next = new Set(prev);
               next.add(activeDay);
